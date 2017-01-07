@@ -1,9 +1,13 @@
-
-
+// Interactive fiction project
 require("babel-register");   // xform by Babel all *.js
 var assert = require('assert');
 var inspect = require('util').inspect;
 var R = require('ramda');
+
+// Provide inline testing of code.
+var inline = require('./test/inlineTest.js');
+var ilt = inline.inTestConfig;
+
 
 // Effective JavaScript, p. 121
 function Dict(elements) {
@@ -207,32 +211,28 @@ module.exports.direction = direction;
 // and moved to mocha testing. The code
 // remains because further development
 // can break existing tests.
-(function simpleMain() {
+function simpleMain() {
     var player = Player('xyzzy');
     var lantern = Item('lantern');
     var whiskey = Item('Whiskey');
     var ret = player.take(lantern);
+    ilt.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
     console.log('ret=' + ret + ' player takes lantern');
-    var carrying = player.isCarrying(whiskey);
-    if(!carrying) {
-        console.log('As expected, xyzzy is not carrying whiskey');
-    } else {
-        console.log('ERROR: xyzzy should not be carrying whiskey');
-    }
-    console.log('attempt to carry another lantern.');
-    ret = player.take(lantern);
-    if(ret) {
-        console.log('As expected, xyzzy cannot take 2 lanterns.');
-    } else {
-        console.log('ERROR: xyzzy took a second lantern.');
-    }
-})();
+    ilt.checkEq('player does not carry whiskey', 
+            undefined, player.isCarrying(whiskey));
+    ilt.checkEq('fails attempt to carry another lantern.',
+            false, player.take(lantern));
+
+    ilt.reportResults();
+};
+simpleMain();
 
 var adict = Dict({
     alice: 34,
     bob: 24,
     chris: 62
 });
+
 
 // Necessary vars for easy debugging.
 var player = Player('xyzzy');

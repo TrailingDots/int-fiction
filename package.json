@@ -17,6 +17,7 @@
   "dependencies": {
     "babel-cli": "^6.18.0",
     "babel-polyfill": "^6.20.0",
+    "magic-globals": "^0.5.1",
     "ramda": "^0.23.0",
     "stampit": "^3.1.1"
   },
