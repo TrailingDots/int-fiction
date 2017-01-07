@@ -9,7 +9,7 @@
     "plato": "plato -r -d plato-reports -x 'node_modules|plato-reports' .",
     "lint": "jshint **.js test/**.js; exit 0",
     "env": "env",
-    "coverage": "istanbul cover _mocha -- --ui bdd -R spec -t 5000 --compilers js:babel-register $(find api -name '*-test.js'); echo Report at: $(pwd)/coverage/lcov-report/index.html",
+    "coverage": "istanbul cover _mocha -- --ui bdd -R spec -t 5000 --compilers js:babel-register world.js inlineTest.js test/world-test.js ; echo Report at: $(pwd)/coverage/lcov-report/index.html",
     "pretest": "npm run lint"
   },
   "author": "",

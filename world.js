@@ -5,8 +5,9 @@ var inspect = require('util').inspect;
 var R = require('ramda');
 
 // Provide inline testing of code.
-var inline = require('./test/inlineTest.js');
-var ilt = inline.inTestConfig;
+var inline = require('./inlineTest.js');
+var itc = inline.inTestConfig;
+itc.isTesting = true;   // start inline testing.
 
 
 // Effective JavaScript, p. 121
@@ -216,14 +217,19 @@ function simpleMain() {
     var lantern = Item('lantern');
     var whiskey = Item('Whiskey');
     var ret = player.take(lantern);
-    ilt.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
+    itc.exists('Empty obj exists', {});
+    itc.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
     console.log('ret=' + ret + ' player takes lantern');
-    ilt.checkEq('player does not carry whiskey', 
+    itc.checkEq('player does not carry whiskey', 
             undefined, player.isCarrying(whiskey));
-    ilt.checkEq('fails attempt to carry another lantern.',
+    itc.checkEq('fails attempt to carry another lantern.',
             false, player.take(lantern));
 
-    ilt.reportResults();
+    itc.reportResults();
+
+    itc.zeroCounts();   // Clear counts for coverage report.
+    itc.usage();        // Report for coverage.
+    inline.selfTest();         // Call self-tester for coverage report.
 };
 simpleMain();
 
