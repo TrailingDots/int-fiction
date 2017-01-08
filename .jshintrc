@@ -104,7 +104,7 @@
     // Whether non-standard (but widely adopted) globals should be predefined.
     "nonstandard": false,
     // Allow multiline strings.
-    "multistr": false,
+    "multistr": true,
     // Whether line breaks should not be checked around commas.
     "laxcomma": false,
     // Whether semicolons may be ommitted for the trailing statements inside of a
@@ -120,7 +120,7 @@
     // Style preferences
 
     // Whether constructor names must be capitalized.
-    "newcap": true,
+    "newcap": false,
     // Whether empty blocks should be forbidden.
     "noempty": false,
     // Whether using `new` for side-effects should be forbidden.

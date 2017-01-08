@@ -1,3 +1,4 @@
+//
 require("babel-register");
 
 var world = require("../world.js");
@@ -6,7 +7,7 @@ var assert = require ("assert");
 var inspect = require('util').inspect;
 
 describe('Testing the Player object', function () {
-    describe('adding to inventory', function () {
+    describe('adding to contents', function () {
 
         it('should have only the items taken', function() {
             var player = world.Player();
@@ -20,7 +21,7 @@ describe('Testing the Player object', function () {
             assert.equal(true, player.take(lantern));
             assert.equal(true, player.take(whiskey));
 
-            //TODO: assert.equal(2, player.inventory.length);
+            //TODO: assert.equal(2, player.contents.length);
             assert.equal(lantern.name, 
                 player.isCarrying(lantern).name);
             assert.equal(whiskey.name, 
@@ -117,18 +118,18 @@ describe('Testing the Player object', function () {
             assert.equal(true, player.take(beer));
 
             // Check beer count
-            assert.equal(2, player.inventory.get('beer').count);
+            assert.equal(2, player.contents.get('beer').count);
             // Insist that beer has count of one while
             // 2 beers in player inventory
             assert.equal(0, beer.count);
             // Verify only one ax
-            assert.equal(1, player.inventory.get('ax').count);
+            assert.equal(1, player.contents.get('ax').count);
         });
 
     });
 
 
-    describe('remove from inventory', function() {
+    describe('remove from contents', function() {
         it('should remove items', function() {
             var player = world.Player();
             var beer = world.Item('beer');
