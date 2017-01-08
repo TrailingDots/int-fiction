@@ -98,7 +98,7 @@ function Container (name) {
     
     // Answer true if OK, false otherwise
     self.take = function take(item) {
-        if(!item.isMovable) {
+        if(item.isSingle) {
             say("This item cannot be moved.");
             return false;
         } 
@@ -224,7 +224,7 @@ function Item(name) {
     var self = this instanceof Item ? this : new Item(name);
     self.name = name || '';
     self.description = 'You do not see anything special about ' + self.name;
-    self.isMovable = true;
+    self.isSingle = true;
 
     // true if singles only like beer. Gold is multiple.
     // When dropping/deleting this item, the count gets set to 0.
@@ -357,9 +357,9 @@ var adict = Dict({
 var player = Player('xyzzy');
 var ax = Item('ax');
 var table = Item('table');
-table.isMovable = false;
+table.isSingle = true;
 var door = Item('door');
-door.isMovable = false;
+door.isSingle = true;
 var beer = Item('beer');
 beer.isSingle = false;  // Many bottles of beer OK
 var gold = Item('gold');

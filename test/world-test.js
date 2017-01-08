@@ -30,7 +30,7 @@ describe('Testing the Player object', function () {
 
             // Cannot take immovable objects.
             var table = world.Item();
-            table.isMovable = false;
+            table.isSingle = true;
             assert.equal(false, player.take(table));
         });
 
@@ -87,7 +87,7 @@ describe('Testing the Player object', function () {
             var ax = world.Item('ax');
             var beer = world.Item('beer');
             var table = world.Item('table');
-            table.isMovable = false;
+            table.isSingle = true;
             var player = world.Player();
             var ret = player.take(beer);
             assert.equal(true, ret);
