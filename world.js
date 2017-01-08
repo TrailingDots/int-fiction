@@ -4,6 +4,7 @@ require("babel-register");   // xform by Babel all *.js
 var assert = require('assert');
 var inspect = require('util').inspect;
 var R = require('ramda');
+var util = require('util');
 
 // Provide inline testing of code.
 var inline = require('./lib/inlineTest.js');
@@ -60,17 +61,18 @@ Dict.prototype.remove = function remove(key) {
 };
 
 
-function Player(name) {
+function Container (name) {
     'use strict';
-    var self = this instanceof Player ? this : new Player(name);
-    self.name = name || 'Frobitz';  // default name of player
-    self.description = 'You do not see anything special.';
-    self.location = '';
+    var self = this instanceof Container ? this : new Container(name);
+    self.name = name || '';
+    self.status = 'closed';
+
+    // Contents of the room
     self.contents = Dict();
 
     /**
-     * Given an item and a player, determine if that item is in
-     * the player's contents.
+     * Given an item, determine if that item is in
+     * the contents.
      *
      * @param item as cloned from the contents.
      * @return undefined if item not in player contents
@@ -80,7 +82,20 @@ function Player(name) {
         return self.contents.get(item.name);
     };
 
-    // Add an item to contents
+    self.get = function get(item) {
+        return self.contents.get(item.name);
+    };
+
+    self.getByName = function getByName(name) {
+        return self.contents.get(name);
+    };
+
+    /*** Needed?
+    self.set = function set(item) {
+        self.contents.set(item.name, item);
+    };
+    ***/
+    
     // Answer true if OK, false otherwise
     self.take = function take(item) {
         if(!item.isMovable) {
@@ -106,28 +121,98 @@ function Player(name) {
         return true;
     };
 
-    // Drop an item. Return the item if the player has the item.
-    // If the player does not have the item, return false.
+    // Drop an item.
+    // Return the item with decremented ount if multiple instances.
+    // If the item was dropped, return true.
+    // If the player does not have the item, return false. 
     self.drop = function drop(item) {
-        if(!this.isCarrying(item)) {
-            say(player.name + ' is not carrying ' + item.name);
+        var storedItem = this.isCarrying(item);
+        if(!storedItem) {
+            say(item.name + ' is not present.');
             return false;
         }
-        return this.contents.remove(item.name);
+        if(storedItem.count > 1) {
+            storedItem.count -= 1;
+            return storedItem;
+        }
+        this.contents.remove(item.name);
+        return true;
     };
 
-    // Print the contents
-    // Return just the individual items as an array.
+    // Print the contents.
     self.inventory = function inventory() {
         say('Inventory:');
-        var items = [];
         for (var name in this.contents.elements) {
             if(this.contents.elements.hasOwnProperty(name)) {
                 say('    ' + name);
+            }
+        }
+        return true;
+    };
+
+    // Return the individual items as an array.
+    self.inventoryList = function inventoryList() {
+        var items = [];
+        for (var name in this.contents.elements) {
+            if(this.contents.elements.hasOwnProperty(name)) {
                 items.push(this.contents.elements[name]);
             }
         }
         return items;
+    };
+
+    return self;
+}
+
+function Player(name) {
+    'use strict';
+    var self = this instanceof Player ? this : new Player(name);
+    self.name = name || 'Frobitz';  // default name of player
+    self.description = 'You do not see anything special.';
+    self.location = '';
+    self.contents = Container(self.name);
+
+    /**
+     * Given an item, determine if that item is in
+     * the contents.
+     *
+     * @param item as cloned from the contents.
+     * @return undefined if item not in player contents
+     * @return cloned item if item is in player contents.
+     */
+    self.isCarrying = function isCarrying(item) {
+        return self.contents.isCarrying(item);
+    };
+
+    // Return an item in storage
+    self.get = function get(item) {
+        return self.contents.get(item);
+    };
+
+    // Return an item by name.
+    self.getByName = function getByName(name) {
+        return self.contents.getByName(name);
+    };
+
+    // Answer true if OK, false otherwise
+    self.take = function take(item) {
+        return self.contents.take(item);
+    };
+
+    // Drop an item.
+    self.drop = function drop(item) {
+        return self.contents.drop(item);
+    };
+
+
+    // Print the contents
+    self.inventory = function inventory() {
+        return self.contents.inventory();
+    };
+
+    // Return just the individual items of contents as an array.
+    self.inventoryList = function inventoryList() {
+        return self.contents.inventoryList();
     };
 
     return self;
@@ -146,21 +231,14 @@ function Item(name) {
     self.isSingle = true; 
     self.count = 0;
 
+    /*** Needed?
+    self.getCount = function getCount() {
+        return self.count;
+    };
+    ***/
+
     self.weight = 1;
     self.close_description = 'You do not see anything special.';
-    return self;
-}
-
-function Container (name) {
-    'use strict';
-    var self = this instanceof Container ? this : new Container(name);
-    self.name = name || '';
-    self.transparent = false;
-    self.status = 'closed';
-
-    // Contents of the room
-    self.contents = Object.create(null); // null object
-
     return self;
 }
 
@@ -172,7 +250,7 @@ function Room(name) {
     self.objects = {};
 
     // contents of the room
-    self.contents = Object.create(null); // null object
+    self.contents = Container(self.name);
 
     return self;
 }
@@ -192,39 +270,12 @@ function direction() {
 }
 
 
-
-// NOT DONE - TODO FIXME
-function drop(item, player) {
-    // Return true if item dropped,
-    // false if the player is not carrying the item.
-    if( !player.contents.has(item.name) ) {
-        say(player.name + ' is not carrying ' + item.name);
-        return false;
-    }
-    player.contents.remove(item.name);
-}
-
-// See http://ryanmorr.com/true-hash-maps-in-javascript/
-// No prototypes in the generics map.
-var generics = Object.create(null);
-generics.describe = Room;
-generics.examine = Item;
-generics.go = direction;
-generics.connect = [Room, Room];  // Connect two rooms
-generics.exits = Room;
-generics.inventory = Player;
-generics.drop = drop;
-generics.carrying = [Item, Player];
-
-
 module.exports.Player = Player;
 module.exports.Item = Item;
 module.exports.Container = Container;
 module.exports.Room = Room;
 module.exports.say = say;
 module.exports.blank = blank;
-module.exports.generics = generics;
-module.exports.drop = drop;
 module.exports.direction = direction;
 
 // Below this the code gets used to provide
@@ -237,7 +288,10 @@ module.exports.direction = direction;
 function simpleMain() {
     var player = Player('xyzzy');
     var lantern = Item('lantern');
-    var whiskey = Item('Whiskey');
+    var whiskey = Item('whiskey');
+    whiskey.isSingle = false;
+    var ax = Item('ax');
+    player.take(ax);
     var ret = player.take(lantern);
     itc.exists('Empty obj exists', {});
     itc.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
@@ -246,26 +300,41 @@ function simpleMain() {
             undefined, player.isCarrying(whiskey));
     itc.checkEq('fails attempt to carry another lantern.',
             false, player.take(lantern));
-    var items = player.inventory();
+    itc.checkExist('carry ax', player.take(ax));
+    var items = player.inventoryList();
     var ax_item = items.filter(function (item) {
         return item.name === ax.name;
     });
     //filter() always returns an array
-    itc.checkEq(true, util.isArray(ax_item));
+    itc.checkEq('filters to ax', true, util.isArray(ax_item));
     // Array of length 1
-    itc.checkEq(1, ax_item.length);
-    itc.checkEq(ax.name, ax_item[0].name);
+    itc.checkEq('only one ax', 1, ax_item.length);
+    itc.checkEq('verify names of ax', ax.name, ax_item[0].name);
+
+    // Add some more whiskey
+    player.take(whiskey);
+    player.take(whiskey);
+    player.take(whiskey);
+    var newWhiskey = player.getByName('whiskey');
+    console.log('whiskey count:' + newWhiskey.count);
+    itc.checkEq('have 3 whiskey', 3, newWhiskey.count);
+
+    var newWhiskey = player.get(whiskey);
+    itc.checkEq('container get()', 'whiskey', newWhiskey.name);
+
+    var ret = player.drop(whiskey);
+    itc.checkEq('can drop 1 whiskey', true, ret);
 
     // Test the Dict for corner cases.
     // Very unlikely a name of '__proto__' gets used, but handle it!
     // __proto__ insists on a special case for Dict
     var adict = Dict();
-    itc.checkEq(undefined, adict.get('__proto__'));
-    itc.checkEq(9876, adict.get('__proto__', 9876));
-    itc.checkEq(undefined, adict.set('__proto__', 1234));
-    itc.checkEq(1234, adict.get('__proto__'));
-    itc.checkEq(undefined, adict.remove('__proto__'));
-    itc.checkEq(undefined, adict.get('__proto__'));
+    itc.checkEq('no proto, yet', undefined, adict.get('__proto__'));
+    itc.checkEq('default proto:9876', adict.get('__proto__', 9876));
+    itc.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
+    itc.checkEq('found proto', 1234, adict.get('__proto__'));
+    itc.checkEq('removing proto', undefined, adict.remove('__proto__'));
+    itc.checkEq('ensure no proto', undefined, adict.get('__proto__'));
 
 
     itc.reportResults();
@@ -283,6 +352,7 @@ var adict = Dict({
 });
 
 
+/****
 // Necessary vars for easy debugging.
 var player = Player('xyzzy');
 var ax = Item('ax');
@@ -299,5 +369,6 @@ player.take(ax);    // only one ax allowed
 player.take(beer);
 player.take(beer);  // mulitple beer allowed
 player.take(table); // does not happen.
+***/
 
 

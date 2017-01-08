@@ -16,7 +16,7 @@ describe('Testing the Player object', function () {
             var whiskey = world.Item('whiskey');
             whiskey.description = 'Rot gut whiskey';
 
-            world.inventory(player);
+            player.inventory();
 
             assert.equal(true, player.take(lantern));
             assert.equal(true, player.take(whiskey));
@@ -118,12 +118,12 @@ describe('Testing the Player object', function () {
             assert.equal(true, player.take(beer));
 
             // Check beer count
-            assert.equal(2, player.contents.get('beer').count);
+            assert.equal(2, player.getByName('beer').count);
             // Insist that beer has count of one while
             // 2 beers in player inventory
             assert.equal(0, beer.count);
             // Verify only one ax
-            assert.equal(1, player.contents.get('ax').count);
+            assert.equal(1, player.getByName('ax').count);
         });
 
     });
@@ -134,7 +134,7 @@ describe('Testing the Player object', function () {
             var player = world.Player();
             var beer = world.Item('beer');
             player.take(beer);
-            world.drop(beer,player);
+            player.drop(beer);
         });
     });
 
