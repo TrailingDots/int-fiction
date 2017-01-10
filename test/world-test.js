@@ -30,7 +30,7 @@ describe('Testing the Player object', function () {
 
             // Cannot take immovable objects.
             var table = world.Item();
-            table.isSingle = true;
+            table.isMovable = false;
             assert.equal(false, player.take(table));
         });
 
@@ -77,53 +77,52 @@ describe('Testing the Player object', function () {
 
     describe('Player interactions', function() {
         it('should accept either a name or it defaults', function() {
-            var player1 = world.Player();
+            var player1 = world.Player();   // default name
             assert.equal('Frobitz', player1.name);
-            var player2 = world.Player('Foobar');
+            var player2 = world.Player('Foobar'); // supplied name
             assert.equal('Foobar', player2.name);
         });
 
         it('should take only moveable items', function() {
-            var ax = world.Item('ax');
-            var beer = world.Item('beer');
-            var table = world.Item('table');
-            table.isSingle = true;
             var player = world.Player();
+
+            var beer = world.Item('beer');
+            beer.isUnique = false;   // Can carry many bottle of beer
             var ret = player.take(beer);
             assert.equal(true, ret);
+
+            var table = world.Item('table');
+            table.isMovable = false;  // Cannot be carried at all.
             ret = player.take(table);
             assert.equal(false, ret); // Canot take table
         });
 
-        it('should take mulitple instances only if noted', function() {
-            var ax = world.Item('ax');
-
-            var beer = world.Item('beer');
-            beer.isSingle = false; // Allow multiple beers
-
-            var gold = world.Item('gold');
-            gold.isSingle = false; // Allow multiple gold
-
+        it('should take mulitple instances only if not unique', function() {
             var player = world.Player();
 
+            var gold = world.Item('gold');
+            gold.isUnique = false; // Allow multiple gold
+
+            var ax = world.Item('ax');
+            ax.isUnique = true;     // true is the default.
             var ret = player.take(ax);
             assert.equal(true, ret);
-
             // Cannot take another ax
             ret = player.take(ax);
             assert.equal(false, ret);
+            // Verify only one ax
+            assert.equal(1, player.getByName('ax').count);
 
+            var beer = world.Item('beer');
+            beer.isUnique = false; // Allow multiple beers
             assert.equal(true, player.take(beer));
             // Can take multiple beers
             assert.equal(true, player.take(beer));
-
             // Check beer count
             assert.equal(2, player.getByName('beer').count);
             // Insist that beer has count of one while
             // 2 beers in player inventory
             assert.equal(0, beer.count);
-            // Verify only one ax
-            assert.equal(1, player.getByName('ax').count);
         });
 
     });

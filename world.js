@@ -11,7 +11,7 @@ var inline = require('./lib/inlineTest.js');
 var itc = inline.inTestConfig;
 itc.isTesting = true;   // start inline testing.
 
-
+//var Dict = require('./lib/dict.js').Dict;
 // Effective JavaScript, p. 121
 function Dict(elements) {
     var self = this instanceof Dict ? this : new Dict(elements);
@@ -60,6 +60,30 @@ Dict.prototype.remove = function remove(key) {
     return undefined;
 };
 
+Dict.prototype.selfTest = function selfTest() {
+    // Test the Dict for corner cases.
+    // Very unlikely a name of '__proto__' gets used, but handle it!
+    // __proto__ insists on a special case for Dict
+    var lclITC = require('./lib/inlineTest.js').inTestConfig;
+
+    lclITC.zeroCounts();
+    var adict = Dict();
+    console.log('\n------------------------------');
+    console.log('    Testing the Dict object');
+    console.log('------------------------------\n');
+    lclITC.checkEq('no proto, yet', undefined, adict.get('__proto__'));
+    lclITC.checkEq('default proto:9876', adict.get('__proto__', 9876));
+    lclITC.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
+    lclITC.checkEq('found proto', 1234, adict.get('__proto__'));
+    lclITC.checkEq('removing proto', undefined, adict.remove('__proto__'));
+    lclITC.checkEq('ensure no proto', undefined, adict.get('__proto__'));
+
+    lclITC.reportResults();
+    console.log('------------------------------------');
+    console.log('    end of Testing the Dict object');
+    console.log('------------------------------------\n');
+};
+
 
 function Container (name) {
     'use strict';
@@ -98,7 +122,7 @@ function Container (name) {
     
     // Answer true if OK, false otherwise
     self.take = function take(item) {
-        if(item.isSingle) {
+        if(!item.isMovable) {
             say("This item cannot be moved.");
             return false;
         } 
@@ -106,7 +130,7 @@ function Container (name) {
 
         if(carryItem) {
             // Already have this item, ensure multiples OK
-            if(carryItem.isSingle) {
+            if(carryItem.isUnique) {
                 say('This item is already with the player');
                 return false;   
             }
@@ -159,6 +183,11 @@ function Container (name) {
             }
         }
         return items;
+    };
+
+    // Call this ONLY for a self-test.
+    self.selfTest = function selfTest() {
+        this.contents.selfTest();
     };
 
     return self;
@@ -224,11 +253,13 @@ function Item(name) {
     var self = this instanceof Item ? this : new Item(name);
     self.name = name || '';
     self.description = 'You do not see anything special about ' + self.name;
-    self.isSingle = true;
 
-    // true if singles only like beer. Gold is multiple.
+    // Many items are movable. Some, like tables, cannot be carried.
+    self.isMovable = true;
+
+    // true if uniques only like beer. Gold is not unique.
     // When dropping/deleting this item, the count gets set to 0.
-    self.isSingle = true; 
+    self.isUnique = true;
     self.count = 0;
 
     /*** Needed?
@@ -249,10 +280,85 @@ function Room(name) {
     self.long_description = '';
     self.objects = {};
 
-    // contents of the room
+    // Map of exits. 
+    // Key: the direction.
+    // Value: the room name for that direction.
+    self.exits = Dict();
+    
+    self.exitStrings = function exitStrings() {
+        var results= [];
+        Object.keys(self.exits).forEach(function(key) {
+            results.push(key + ': ' + self.exits[key]);
+        });
+        return results.join('\n');
+    };
+
+    // Contents of the room
     self.contents = Container(self.name);
 
+
+    // Add an exit to a room.
+    // Answer true if added.
+    self.addExit = function addExit(dir, room) {
+        var normDir = normalizeDirection(dir);
+        if(normDir === undefined) {
+            say(normDir + ' is not a valid direction');
+            return undefined;
+        }
+        var item = self.exits.get(dir, undefined);
+        if(item !== undefined) {
+            // Th!s direction already used.
+            say(normDir + ' is already in use.');
+            return undefined;
+        }
+        // Safe to add item
+        self.exits.set(normDir, room);
+        return true;
+    };
+
+    self.getExit = function getExit(dir) {
+        var normDir = normalizeDirection(dir);
+        if(normDir === undefined) {
+            say(normDir + ' is not a valid direction');
+            return undefined;
+        }
+        var item = self.exits.get(dir, undefined);
+        if(item === undefined) {
+            say('You can not go ' + dir);
+        }
+        return item;
+    };
+
     return self;
+}        
+
+Room.prototype.selfTest = function selfTest() {
+    var room = Room('closet');
+    room.addExit('w', 'kitchen');
+    room.addExit('s', 'bedroom');
+    var exStr = this.exitStrings();
+    console.log("Room Exit strings:" + exStr);
+};
+
+function normalizeDirection(dir) {
+    'use strict';
+    // A list directions. Aliases may be used. An alias gets mapped to
+    // a standard direction.
+    var standard = {
+        'n': 'n', 
+        'north': 'n',
+        'e': 'e', 
+        'east': 'e',
+        's': 's',
+        'south': 's',
+        'w': 'w', 
+        'west': 'w'};
+    // Given a direction as a string, map to a standard name.
+    var lcDir = dir.toLowerCase();
+    if(lcDir in standard) {
+        return standard[lcDir];
+    }
+    return undefined;   // Illegal dir
 }
 
 function say(things) {
@@ -286,14 +392,17 @@ module.exports.direction = direction;
 // remains because further development
 // can break existing tests.
 function simpleMain() {
+    var room = Room('qqqq');
+    room.selfTest();
     var player = Player('xyzzy');
     var lantern = Item('lantern');
     var whiskey = Item('whiskey');
-    whiskey.isSingle = false;
+    whiskey.isUnique = false;
     var ax = Item('ax');
     player.take(ax);
     var ret = player.take(lantern);
     itc.exists('Empty obj exists', {});
+    var playerLantern = player.isCarrying(lantern);
     itc.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
     console.log('ret=' + ret + ' player takes lantern');
     itc.checkEq('player does not carry whiskey', 
@@ -319,51 +428,41 @@ function simpleMain() {
     console.log('whiskey count:' + newWhiskey.count);
     itc.checkEq('have 3 whiskey', 3, newWhiskey.count);
 
-    var newWhiskey = player.get(whiskey);
+    newWhiskey = player.get(whiskey);
     itc.checkEq('container get()', 'whiskey', newWhiskey.name);
 
-    var ret = player.drop(whiskey);
-    itc.checkEq('can drop 1 whiskey', true, ret);
-
-    // Test the Dict for corner cases.
-    // Very unlikely a name of '__proto__' gets used, but handle it!
-    // __proto__ insists on a special case for Dict
-    var adict = Dict();
-    itc.checkEq('no proto, yet', undefined, adict.get('__proto__'));
-    itc.checkEq('default proto:9876', adict.get('__proto__', 9876));
-    itc.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
-    itc.checkEq('found proto', 1234, adict.get('__proto__'));
-    itc.checkEq('removing proto', undefined, adict.remove('__proto__'));
-    itc.checkEq('ensure no proto', undefined, adict.get('__proto__'));
-
-
+    ret = player.drop(whiskey);
+    itc.checkEq('can drop 1 whiskey', 2, ret.count);
     itc.reportResults();
 
     itc.zeroCounts();   // Clear counts for coverage report.
     itc.usage();        // Report for coverage.
-    inline.selfTest();         // Call self-tester for coverage report.
+
+    // Test the Dict structure
+    player.contents.selfTest();
+
 }
 simpleMain();
 
+
+/****
+// Necessary vars for easy debugging.
 var adict = Dict({
     alice: 34,
     bob: 24,
     chris: 62
 });
 
-
-/****
-// Necessary vars for easy debugging.
 var player = Player('xyzzy');
 var ax = Item('ax');
 var table = Item('table');
-table.isSingle = true;
+table.isUnique = true;
 var door = Item('door');
-door.isSingle = true;
+door.isUnique = true;
 var beer = Item('beer');
-beer.isSingle = false;  // Many bottles of beer OK
+beer.isUnique = false;  // Many bottles of beer OK
 var gold = Item('gold');
-gold.isSingle = false;  // lots of gold OK
+gold.isUnique = false;  // lots of gold OK
 player.take(ax);
 player.take(ax);    // only one ax allowed
 player.take(beer);
