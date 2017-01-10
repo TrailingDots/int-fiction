@@ -8,10 +8,7 @@ var util = require('util');
 
 // Provide inline testing of code.
 var inline = require('./lib/inlineTest.js');
-var itc = inline.inTestConfig;
-itc.isTesting = true;   // start inline testing.
 
-//var Dict = require('./lib/dict.js').Dict;
 // Effective JavaScript, p. 121
 function Dict(elements) {
     var self = this instanceof Dict ? this : new Dict(elements);
@@ -45,6 +42,7 @@ Dict.prototype.set = function set(key, val) {
         this.elements[key] = val;
     }
 };
+
 // Remove the key.
 // Answers undefined even if key is not present. Standard JS!
 // Answers the item if the key/value exists.
@@ -64,21 +62,27 @@ Dict.prototype.selfTest = function selfTest() {
     // Test the Dict for corner cases.
     // Very unlikely a name of '__proto__' gets used, but handle it!
     // __proto__ insists on a special case for Dict
-    var lclITC = require('./lib/inlineTest.js').inTestConfig;
 
-    lclITC.zeroCounts();
+    var itc = inline.inTestConfig();
+    itc.isTesting = true;
+    itc.zeroCounts();
     var adict = Dict();
     console.log('\n------------------------------');
     console.log('    Testing the Dict object');
     console.log('------------------------------\n');
-    lclITC.checkEq('no proto, yet', undefined, adict.get('__proto__'));
-    lclITC.checkEq('default proto:9876', adict.get('__proto__', 9876));
-    lclITC.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
-    lclITC.checkEq('found proto', 1234, adict.get('__proto__'));
-    lclITC.checkEq('removing proto', undefined, adict.remove('__proto__'));
-    lclITC.checkEq('ensure no proto', undefined, adict.get('__proto__'));
+    itc.checkEq('no proto, yet', undefined, adict.get('__proto__'));
+    itc.checkEq('default proto:9876', adict.get('__proto__', 9876));
+    itc.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
+    itc.checkEq('found proto', 1234, adict.get('__proto__'));
+    itc.checkEq('removing proto', undefined, adict.remove('__proto__'));
+    itc.checkEq('ensure no proto', undefined, adict.get('__proto__'));
 
-    lclITC.reportResults();
+    itc.checkEq('insert __proto__ is OK', 'ok-proto', adict.set('__proto__', 'ok-proto'));
+    itc.checkEq('check the has() for __proto__', true, adict.has('__proto__'));
+    itc.checkEq('can retrieve __proto__', 'ok-proto', adict.get('__proto__'));
+
+    itc.reportResults();
+    itc.zeroCounts();
     console.log('------------------------------------');
     console.log('    end of Testing the Dict object');
     console.log('------------------------------------\n');
@@ -94,104 +98,99 @@ function Container (name) {
     // Contents of the room
     self.contents = Dict();
 
-    /**
-     * Given an item, determine if that item is in
-     * the contents.
-     *
-     * @param item as cloned from the contents.
-     * @return undefined if item not in player contents
-     * @return cloned item if item is in player contents.
-     */
-    self.isCarrying = function isCarrying(item) {
-        return self.contents.get(item.name);
-    };
-
-    self.get = function get(item) {
-        return self.contents.get(item.name);
-    };
-
-    self.getByName = function getByName(name) {
-        return self.contents.get(name);
-    };
-
-    /*** Needed?
-    self.set = function set(item) {
-        self.contents.set(item.name, item);
-    };
-    ***/
-    
-    // Answer true if OK, false otherwise
-    self.take = function take(item) {
-        if(!item.isMovable) {
-            say("This item cannot be moved.");
-            return false;
-        } 
-        var carryItem = self.isCarrying(item);
-
-        if(carryItem) {
-            // Already have this item, ensure multiples OK
-            if(carryItem.isUnique) {
-                say('This item is already with the player');
-                return false;   
-            }
-            carryItem.count += 1;
-        } else {
-            // Save a clone and NOT the item reference!
-            var clonedItem = R.clone(item);
-            clonedItem.count += 1;
-            console.log('cloned saved, count:' + clonedItem.count);
-            self.contents.set(clonedItem.name, clonedItem);
-        }
-        return true;
-    };
-
-    // Drop an item.
-    // Return the item with decremented ount if multiple instances.
-    // If the item was dropped, return true.
-    // If the player does not have the item, return false. 
-    self.drop = function drop(item) {
-        var storedItem = this.isCarrying(item);
-        if(!storedItem) {
-            say(item.name + ' is not present.');
-            return false;
-        }
-        if(storedItem.count > 1) {
-            storedItem.count -= 1;
-            return storedItem;
-        }
-        this.contents.remove(item.name);
-        return true;
-    };
-
-    // Print the contents.
-    self.inventory = function inventory() {
-        say('Inventory:');
-        for (var name in this.contents.elements) {
-            if(this.contents.elements.hasOwnProperty(name)) {
-                say('    ' + name);
-            }
-        }
-        return true;
-    };
-
-    // Return the individual items as an array.
-    self.inventoryList = function inventoryList() {
-        var items = [];
-        for (var name in this.contents.elements) {
-            if(this.contents.elements.hasOwnProperty(name)) {
-                items.push(this.contents.elements[name]);
-            }
-        }
-        return items;
-    };
-
-    // Call this ONLY for a self-test.
-    self.selfTest = function selfTest() {
-        this.contents.selfTest();
-    };
-
     return self;
 }
+
+/**
+ * Given an item, determine if that item is in
+ * the contents.
+ *
+ * @param item as cloned from the contents.
+ * @return undefined if item not in player contents
+ * @return cloned item if item is in player contents.
+ */
+Container.prototype.isCarrying = function isCarrying(item) {
+    return this.contents.get(item.name);
+};
+
+Container.prototype.get = function get(item) {
+    return this.contents.get(item.name);
+};
+
+Container.prototype.getByName = function getByName(name) {
+    return this.contents.get(name);
+};
+
+// Answer true if OK, false otherwise
+Container.prototype.take = function take(item) {
+    if(!item.isMovable) {
+        say("This item cannot be moved.");
+        return false;
+    } 
+    var carryItem = this.isCarrying(item);
+
+    if(carryItem) {
+        // Already have this item, ensure multiples OK
+        if(carryItem.isUnique) {
+            say('This item is already with the player');
+            return false;   
+        }
+        carryItem.count += 1;
+    } else {
+        // Save a clone and NOT the item reference!
+        var clonedItem = R.clone(item);
+        clonedItem.count += 1;
+        console.log('cloned saved, count:' + clonedItem.count);
+        this.contents.set(clonedItem.name, clonedItem);
+    }
+    return true;
+};
+
+// Drop an item.
+// Return the item with decremented ount if multiple instances.
+// If the item was dropped, return true.
+// If the player does not have the item, return false. 
+Container.prototype.drop = function drop(item) {
+    var storedItem = this.isCarrying(item);
+    if(!storedItem) {
+        say(item.name + ' is not present.');
+        return false;
+    }
+    if(storedItem.count > 1) {
+        storedItem.count -= 1;
+        return storedItem;
+    }
+    this.contents.remove(item.name);
+    return true;
+};
+
+// Print the contents.
+Container.prototype.inventory = function inventory() {
+    say('Inventory:');
+    for (var name in this.contents.elements) {
+        if(this.contents.elements.hasOwnProperty(name)) {
+            say('    ' + name);
+        }
+    }
+    return true;
+};
+
+// Return the individual items as an array.
+Container.prototype.inventoryList = function inventoryList() {
+    var items = [];
+    for (var name in this.contents.elements) {
+        if(this.contents.elements.hasOwnProperty(name)) {
+            items.push(this.contents.elements[name]);
+        }
+    }
+    return items;
+};
+
+// Call this ONLY for a self-test.
+Container.prototype.selfTest = function selfTest() {
+    this.contents.selfTest();
+};
+
 
 function Player(name) {
     'use strict';
@@ -200,52 +199,52 @@ function Player(name) {
     self.description = 'You do not see anything special.';
     self.location = '';
     self.contents = Container(self.name);
-
-    /**
-     * Given an item, determine if that item is in
-     * the contents.
-     *
-     * @param item as cloned from the contents.
-     * @return undefined if item not in player contents
-     * @return cloned item if item is in player contents.
-     */
-    self.isCarrying = function isCarrying(item) {
-        return self.contents.isCarrying(item);
-    };
-
-    // Return an item in storage
-    self.get = function get(item) {
-        return self.contents.get(item);
-    };
-
-    // Return an item by name.
-    self.getByName = function getByName(name) {
-        return self.contents.getByName(name);
-    };
-
-    // Answer true if OK, false otherwise
-    self.take = function take(item) {
-        return self.contents.take(item);
-    };
-
-    // Drop an item.
-    self.drop = function drop(item) {
-        return self.contents.drop(item);
-    };
-
-
-    // Print the contents
-    self.inventory = function inventory() {
-        return self.contents.inventory();
-    };
-
-    // Return just the individual items of contents as an array.
-    self.inventoryList = function inventoryList() {
-        return self.contents.inventoryList();
-    };
-
     return self;
 }
+
+/**
+ * Given an item, determine if that item is in
+ * the contents.
+ *
+ * @param item as cloned from the contents.
+ * @return undefined if item not in player contents
+ * @return cloned item if item is in player contents.
+ */
+Player.prototype.isCarrying = function isCarrying(item) {
+    return this.contents.isCarrying(item);
+};
+
+// Return an item in storage
+Player.prototype.get = function get(item) {
+    return this.contents.get(item);
+};
+
+// Return an item by name.
+Player.prototype.getByName = function getByName(name) {
+    return this.contents.getByName(name);
+};
+
+// Answer true if OK, false otherwise
+Player.prototype.take = function take(item) {
+    return this.contents.take(item);
+};
+
+// Drop an item.
+Player.prototype.drop = function drop(item) {
+    return this.contents.drop(item);
+};
+
+
+// Print the contents
+Player.prototype.inventory = function inventory() {
+    return this.contents.inventory();
+};
+
+// Return just the individual items of contents as an array.
+Player.prototype.inventoryList = function inventoryList() {
+    return this.contents.inventoryList();
+};
+
 
 
 function Item(name) {
@@ -262,11 +261,6 @@ function Item(name) {
     self.isUnique = true;
     self.count = 0;
 
-    /*** Needed?
-    self.getCount = function getCount() {
-        return self.count;
-    };
-    ***/
 
     self.weight = 1;
     self.close_description = 'You do not see anything special.';
@@ -285,59 +279,83 @@ function Room(name) {
     // Value: the room name for that direction.
     self.exits = Dict();
     
-    self.exitStrings = function exitStrings() {
-        var results= [];
-        Object.keys(self.exits).forEach(function(key) {
-            results.push(key + ': ' + self.exits[key]);
-        });
-        return results.join('\n');
-    };
-
     // Contents of the room
     self.contents = Container(self.name);
-
-
-    // Add an exit to a room.
-    // Answer true if added.
-    self.addExit = function addExit(dir, room) {
-        var normDir = normalizeDirection(dir);
-        if(normDir === undefined) {
-            say(normDir + ' is not a valid direction');
-            return undefined;
-        }
-        var item = self.exits.get(dir, undefined);
-        if(item !== undefined) {
-            // Th!s direction already used.
-            say(normDir + ' is already in use.');
-            return undefined;
-        }
-        // Safe to add item
-        self.exits.set(normDir, room);
-        return true;
-    };
-
-    self.getExit = function getExit(dir) {
-        var normDir = normalizeDirection(dir);
-        if(normDir === undefined) {
-            say(normDir + ' is not a valid direction');
-            return undefined;
-        }
-        var item = self.exits.get(dir, undefined);
-        if(item === undefined) {
-            say('You can not go ' + dir);
-        }
-        return item;
-    };
-
+    
     return self;
-}        
+}
+
+Room.prototype.exitStrings = function exitStrings() {
+    var results= [];
+    var self = this;    // See: Effective JS, p. 100.
+    Object.keys(this.exits.elements).forEach(function(key) {
+        results.push(key + ': ' + self.exits.get(key));
+    });
+    return results;
+};
+
+
+// Add an exit to a room.
+// Answer true if added.
+Room.prototype.addExit = function addExit(dir, room) {
+    var normDir = normalizeDirection(dir);
+    if(normDir === undefined) {
+        say(normDir + ' is not a valid direction');
+        return undefined;
+    }
+    var item = this.exits.get(dir, undefined);
+    if(item !== undefined) {
+        // Th!s direction already used.
+        say(normDir + ' is already in use.');
+        return undefined;
+    }
+    // Safe to add item
+    this.exits.set(normDir, room);
+    return true;
+};
+
+Room.prototype.getExit = function getExit(dir) {
+    var normDir = normalizeDirection(dir);
+    if(normDir === undefined) {
+        say(normDir + ' is not a valid direction');
+        return undefined;
+    }
+    var item = this.exits.get(dir, undefined);
+    if(item === undefined) {
+        say('You can not go ' + dir);
+        return undefined;
+    }
+    return item;
+};
 
 Room.prototype.selfTest = function selfTest() {
+    console.log('\n------------------------------');
+    console.log('    Testing the Room object');
+    console.log('------------------------------\n');
+    var itc = inline.inTestConfig();
+    itc.isTesting = true;
+    itc.zeroCounts();   // Clear counts for coverage report.
     var room = Room('closet');
-    room.addExit('w', 'kitchen');
-    room.addExit('s', 'bedroom');
-    var exStr = this.exitStrings();
+    itc.checkEq('Adding w kitchen', true, room.addExit('w', 'kitchen'));
+    itc.checkEq('Adding s bedroom', true, room.addExit('s', 'bedroom'));
+    itc.checkEq('Adding n garden', true, room.addExit('n', 'garden'));
+    itc.checkEq('w dir already used', undefined, room.addExit('w', 'pool'));
+    itc.checkEq('w still used', undefined, room.addExit('w', 'garage'));
+    var roomName = room.getExit('w');
+    itc.checkEq('w room must be kitchen', 'kitchen', roomName);
+    itc.checkEq('bogus room must be undefined', room.getExit('bogus'));
+    var exStr = room.exitStrings();
     console.log("Room Exit strings:" + exStr);
+
+    var room1 = Room('pool');
+    itc.checkEq('unknown direction results in undefined', undefined, room1.getExit('n'));
+    itc.checkEq('attempt to add bogus exit fails', undefined, room1.addExit('bogus', 'nowhere'));
+
+    itc.reportResults();
+    itc.zeroCounts();   // Clear counts for coverage report.
+    console.log('------------------------------------');
+    console.log('    end of Testing the Room object');
+    console.log('------------------------------------\n');
 };
 
 function normalizeDirection(dir) {
@@ -401,6 +419,7 @@ function simpleMain() {
     var ax = Item('ax');
     player.take(ax);
     var ret = player.take(lantern);
+    var itc = inline.inTestConfig();
     itc.exists('Empty obj exists', {});
     var playerLantern = player.isCarrying(lantern);
     itc.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
@@ -433,6 +452,10 @@ function simpleMain() {
 
     ret = player.drop(whiskey);
     itc.checkEq('can drop 1 whiskey', 2, ret.count);
+
+    var shovel = Item('shovel');
+    itc.checkEq('Cannot drop what player does not have', false, player.drop(shovel));
+    player.inventory();
     itc.reportResults();
 
     itc.zeroCounts();   // Clear counts for coverage report.
