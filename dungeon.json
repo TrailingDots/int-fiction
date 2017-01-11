@@ -1,0 +1,60 @@
+{
+  "Dungeon": {
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "type": "Room",
+        "description": "A messy kitchen full of trash and dirty dishes",
+        "contents": [
+          {
+            "name": "kitchen table",
+            "type": "Item",
+            "description": "An ordinary ktichen table.",
+            "isMovable": false,
+            "isUnique": true,
+            "count": 1,
+            "weight": 0,
+            "inventory": [
+              {
+                "name": "candlle",
+                "type": "Item",
+                "description": "A burning candle",
+                "isUnique": true,
+                "isMovable": false,
+                "count": 3,
+                "weight": 1
+              },
+              {
+                "name": "Gold coins",
+                "type": "Item",
+                "description": "Gold coins glisten in candlelight.",
+                "isUnique": false,
+                "isMovable": true,
+                "count": 10,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "name": "ktichen chair",
+            "type": "Item",
+            "description": "An ordinary ktichen chari.",
+            "isMovable": false,
+            "isUnique": true,
+            "count": 1,
+            "weight": 0
+          },
+          {
+            "name": "Wizard",
+            "type": "Player",
+            "description": "A snooring wizard who smells of whiskey",
+            "isMovable": false,
+            "isUnique": true,
+            "count": 1,
+            "weight": 150
+          }
+        ]
+      }
+    ]
+  }
+}

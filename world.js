@@ -1,5 +1,7 @@
 //
 // Interactive fiction project
+// To get all functions:   egrep "^fun|^[A-Z]" world.js
+//
 require("babel-register");   // xform by Babel all *.js
 var assert = require('assert');
 var inspect = require('util').inspect;
@@ -260,7 +262,9 @@ function Item(name) {
     // When dropping/deleting this item, the count gets set to 0.
     self.isUnique = true;
     self.count = 0;
-
+    //
+    // Contents of the item (a player has a jacket. In that jacket is gold)
+    self.contents = Container(self.name);
 
     self.weight = 1;
     self.close_description = 'You do not see anything special.';
@@ -363,6 +367,10 @@ function normalizeDirection(dir) {
     // A list directions. Aliases may be used. An alias gets mapped to
     // a standard direction.
     var standard = {
+        'u': 'u',
+        'up': 'u',
+        'd': 'd',
+        'down': 'd',
         'n': 'n', 
         'north': 'n',
         'e': 'e', 
