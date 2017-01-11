@@ -137,6 +137,87 @@ describe('Testing the Player object', function () {
         });
     });
 
+    describe('Container operations', function () {
+        it('should allow for pickup and droping objects', function () {
+            var beer = world.Item('beer');
+            var gold = world.Item('gold');
+            var foobar = world.Item('foobar');
+            var player = world.Player();
+            assert.equal(true, player.take(beer));
+            assert.equal(true, player.take(gold));
+
+            // player drops beer
+            assert.equal(true, player.drop(beer));
+            assert.equal(undefined, player.isCarrying(beer));
+            assert.equal('gold', player.isCarrying(gold).name);
+
+            // dropping something the player does not have results in false
+            assert.equal(false, player.drop(foobar));
+        });
+    });
+
+    describe('Container operations ByName', function () {
+        it('should allow for pickup and droping objects ByName', function () {
+            var beer = world.Item('beer');
+            var gold = world.Item('gold');
+            var foobar = world.Item('foobar');
+            var player = world.Player();
+            assert.equal(true, player.take(beer));
+            assert.equal(false, player.take(undefined));
+            assert.equal(true, player.take(gold));
+
+            // player drops beer
+            assert.equal(true, player.dropByName('beer'));
+            assert.equal(undefined, player.isCarryingByName('beer'));
+            assert.equal(undefined, player.isCarryingByName(undefined));
+            assert.equal('gold', player.isCarryingByName('gold').name);
+
+            // dropping something the player does not have results in false
+            assert.equal(false, player.dropByName('foobar'));
+        });
+    });
+
+    describe('A room and all operations on its contents and exits', function() {
+        it('should contain furniture - add a remove, inventory', function () {
+            var chair = world.Item('chair');
+            var table = world.Item('table');
+            var stool = world.Item('stool');
+            var scroll = world.Item('scroll');
+            var room = world.Room('room');
+            
+            assert.equal(true, room.take(chair));
+            assert.equal(true, room.take(table));
+            assert.equal('chair', room.isCarrying(chair).name);
+            assert.equal('chair', room.isCarryingByName('chair').name);
+            assert.equal('table', room.isCarryingByName('table').name);
+            room.inventory();
+            var invList = room.inventoryList();
+            assert.equal(2, invList.length);
+
+            assert.equal('table', room.get(table).name);
+            var ret = room.dropByName('table');
+            assert.equal(true, room.take(table));
+            assert.equal(true, room.dropByName('table'));
+            assert.equal(undefined, room.isCarryingByName('table'));
+
+            // Use objects instead of names.
+            assert.equal(true, room.take(table));
+            assert.equal(true, room.drop(table));
+            assert.equal(undefined, room.isCarrying(table));
+
+            assert.equal('chair', room.getByName('chair').name);
+
+
+
+            //
+            // take the table back up
+            assert.equal(true, room.take(table));
+            assert.equal(true, room.drop(table));
+            var inv = room.inventoryList();
+            console.log('room inv list: ' + inspect(inv));
+        });
+    });
+
 });
 
 

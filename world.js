@@ -27,8 +27,9 @@ Dict.prototype.has = function has(key) {
     // own property only
     return {}.hasOwnProperty.call(this.elements, key);
 };
+// If key is present, return the value.
 // If key not present, return default value.
-// If no default value present, return undefined.
+// If no default value in args, return undefined.
 Dict.prototype.get = function get(key, defaultValue) {
     if(key === "__proto__") {
         return this.specialProto;
@@ -36,6 +37,8 @@ Dict.prototype.get = function get(key, defaultValue) {
     // own property only
     return this.has(key) ? this.elements[key] : defaultValue;
 };
+// Set a key in Dic to val.
+// Always answers val.
 Dict.prototype.set = function set(key, val) {
     if(key === "__proto__") {
         this.hasSpecialProto = true;
@@ -43,6 +46,7 @@ Dict.prototype.set = function set(key, val) {
     } else {
         this.elements[key] = val;
     }
+    return val;
 };
 
 // Remove the key.
@@ -61,12 +65,17 @@ Dict.prototype.remove = function remove(key) {
 };
 
 Dict.prototype.selfTest = function selfTest() {
+    console.log('\n==================================');
+    console.log('     Test the Dict for corner cases.');
+    console.log('====================================');
     // Test the Dict for corner cases.
     // Very unlikely a name of '__proto__' gets used, but handle it!
     // __proto__ insists on a special case for Dict
 
+    if(!process.env.DICT_TESTING) {
+        return;
+    }
     var itc = inline.inTestConfig();
-    itc.isTesting = true;
     itc.zeroCounts();
     var adict = Dict();
     console.log('\n------------------------------');
@@ -90,7 +99,10 @@ Dict.prototype.selfTest = function selfTest() {
     console.log('------------------------------------\n');
 };
 
-
+// Answers with a new instance of Container.
+// Most parts of the game have a Container of some sort.
+// The contents of a Container has only Item instances.
+// A table can have candles, gold and food. 
 function Container (name) {
     'use strict';
     var self = this instanceof Container ? this : new Container(name);
@@ -112,7 +124,14 @@ function Container (name) {
  * @return cloned item if item is in player contents.
  */
 Container.prototype.isCarrying = function isCarrying(item) {
+    if(item === undefined) {
+        return undefined;
+    }
     return this.contents.get(item.name);
+};
+
+Container.prototype.isCarryingByName = function isCarrying(itemName) {
+    return this.contents.get(itemName);
 };
 
 Container.prototype.get = function get(item) {
@@ -125,6 +144,9 @@ Container.prototype.getByName = function getByName(name) {
 
 // Answer true if OK, false otherwise
 Container.prototype.take = function take(item) {
+    if(item === undefined) {
+        return false;
+    }
     if(!item.isMovable) {
         say("This item cannot be moved.");
         return false;
@@ -149,13 +171,19 @@ Container.prototype.take = function take(item) {
 };
 
 // Drop an item.
-// Return the item with decremented ount if multiple instances.
+// Return the item with decremented count if multiple instances.
 // If the item was dropped, return true.
 // If the player does not have the item, return false. 
+// TODO: Need a routine to drop the item if the count > 0, such as beer.
 Container.prototype.drop = function drop(item) {
     var storedItem = this.isCarrying(item);
     if(!storedItem) {
-        say(item.name + ' is not present.');
+        if(item) {
+            say(item.name + ' is not present.');
+        } else {
+            say('"undefined item" is not present.');
+        }
+
         return false;
     }
     if(storedItem.count > 1) {
@@ -165,6 +193,12 @@ Container.prototype.drop = function drop(item) {
     this.contents.remove(item.name);
     return true;
 };
+
+Container.prototype.dropByName = function dropByName(itemName) {
+    var storedItem = this.isCarryingByName(itemName);
+    return this.drop(storedItem);
+};
+
 
 // Print the contents.
 Container.prototype.inventory = function inventory() {
@@ -194,12 +228,15 @@ Container.prototype.selfTest = function selfTest() {
 };
 
 
+// Answers a new instance of a Player.
 function Player(name) {
     'use strict';
     var self = this instanceof Player ? this : new Player(name);
     self.name = name || 'Frobitz';  // default name of player
     self.description = 'You do not see anything special.';
     self.location = '';
+
+    // The player has a container the same as the player's name.
     self.contents = Container(self.name);
     return self;
 }
@@ -214,6 +251,10 @@ function Player(name) {
  */
 Player.prototype.isCarrying = function isCarrying(item) {
     return this.contents.isCarrying(item);
+};
+
+Player.prototype.isCarryingByName = function isCarrying(itemName) {
+    return this.contents.isCarryingByName(itemName);
 };
 
 // Return an item in storage
@@ -231,9 +272,22 @@ Player.prototype.take = function take(item) {
     return this.contents.take(item);
 };
 
+// This does not make sense. A player picks up
+// an entire item and not a simple name.
+/*
+Player.prototype.takeByName = function take(itemName) {
+    console.log("ERROR: Cannot take an item by name only! " + itemName);
+    return false;
+};
+*/
+
 // Drop an item.
 Player.prototype.drop = function drop(item) {
     return this.contents.drop(item);
+};
+
+Player.prototype.dropByName = function dropByName(item) {
+    return this.contents.dropByName(item);
 };
 
 
@@ -248,7 +302,10 @@ Player.prototype.inventoryList = function inventoryList() {
 };
 
 
-
+// An Item gets placed into the contents of something.
+// E.g.: A candle onto a table, gold into a Player's pocket.
+// The contents dict contains instances of Item. Each Item
+// has a name.
 function Item(name) {
     'use strict';
     var self = this instanceof Item ? this : new Item(name);
@@ -263,8 +320,9 @@ function Item(name) {
     self.isUnique = true;
     self.count = 0;
     //
+    // Needed? Too tricky????  TODO FIXME
     // Contents of the item (a player has a jacket. In that jacket is gold)
-    self.contents = Container(self.name);
+    //self.contents = Container(self.name);
 
     self.weight = 1;
     self.close_description = 'You do not see anything special.';
@@ -332,7 +390,71 @@ Room.prototype.getExit = function getExit(dir) {
     return item;
 };
 
+/**
+ * Given an item, determine if that item is in
+ * the contents.
+ *
+ * @param item as cloned from the contents.
+ * @return undefined if item not in player contents
+ * @return cloned item if item is in player contents.
+ */
+Room.prototype.isCarrying = function isCarrying(item) {
+    return this.contents.isCarrying(item);
+};
+
+Room.prototype.isCarryingByName = function isCarrying(itemName) {
+    return this.contents.isCarryingByName(itemName);
+};
+
+// Return an item in storage
+Room.prototype.get = function get(item) {
+    return this.contents.get(item);
+};
+
+// Return an item by name.
+Room.prototype.getByName = function getByName(name) {
+    return this.contents.getByName(name);
+};
+
+// Answer true if OK, false otherwise
+Room.prototype.take = function take(item) {
+    return this.contents.take(item);
+};
+
+/*
+// Does not make sense.
+// Answer true if OK, false otherwise
+Room.prototype.takeByName = function takeByName(itemName) {
+    console.log("ERROR: Cannot take an item by name only! " + itemName);
+    return false;
+};
+*/
+
+// Drop an item.
+Room.prototype.drop = function drop(item) {
+    return this.contents.drop(item);
+};
+
+Room.prototype.dropByName = function dropByName(itemName) {
+    return this.contents.dropByName(itemName);
+};
+
+
+// Print the contents
+Room.prototype.inventory = function inventory() {
+    return this.contents.inventory();
+};
+
+// Return just the individual items of contents as an array.
+Room.prototype.inventoryList = function inventoryList() {
+    return this.contents.inventoryList();
+};
+
 Room.prototype.selfTest = function selfTest() {
+    if(!process.env.ROOM_TESTING) {
+        return;
+    }
+
     console.log('\n------------------------------');
     console.log('    Testing the Room object');
     console.log('------------------------------\n');
@@ -354,6 +476,17 @@ Room.prototype.selfTest = function selfTest() {
     var room1 = Room('pool');
     itc.checkEq('unknown direction results in undefined', undefined, room1.getExit('n'));
     itc.checkEq('attempt to add bogus exit fails', undefined, room1.addExit('bogus', 'nowhere'));
+
+    // Test for all "byName" fcns
+    var player = Player('byName');
+    var beer = Item('beer');
+    var gold = Item('gold');
+    itc.checkEq('byName takes beer', true, player.take(beer));
+    itc.checkEq('byName takes gold', true, player.take(gold));
+    itc.checkEq('byName isCarrying beer', 'beer', player.isCarryingByName('beer').name);
+    itc.checkEq('byName isCarrying foobar', undefined, player.isCarryingByName('foobar'));
+    itc.checkEq('byName isCarrying beer', 'beer', player.isCarryingByName('beer').name);
+    itc.checkEq('byName beer count must be 1', 1, player.isCarryingByName('beer').count);
 
     itc.reportResults();
     itc.zeroCounts();   // Clear counts for coverage report.
@@ -418,6 +551,9 @@ module.exports.direction = direction;
 // remains because further development
 // can break existing tests.
 function simpleMain() {
+    if(!process.env.SIMPLE_MAIN_TESTING) {
+        return;
+    }
     var room = Room('qqqq');
     room.selfTest();
     var player = Player('xyzzy');
@@ -431,6 +567,7 @@ function simpleMain() {
     itc.exists('Empty obj exists', {});
     var playerLantern = player.isCarrying(lantern);
     itc.checkEq('player has lantern', lantern.name, player.isCarrying(lantern).name);
+    itc.checkEq('player has container lantern', lantern.name, player.contents.isCarrying(lantern).name);
     console.log('ret=' + ret + ' player takes lantern');
     itc.checkEq('player does not carry whiskey', 
             undefined, player.isCarrying(whiskey));
@@ -465,6 +602,21 @@ function simpleMain() {
     itc.checkEq('Cannot drop what player does not have', false, player.drop(shovel));
     player.inventory();
     itc.reportResults();
+
+
+    var chair = Item('chair');
+    var table = Item('table');
+    var stool = Item('stool');
+    room = Room('room');
+    itc.checkEq('take chair', true, room.take(chair));
+    itc.checkEq('take table', true, room.take(table));
+    itc.checkEq('carrying chair',  'chair', room.isCarryingByName('chair').name);
+    itc.checkEq('carrying table', 'table', room.isCarryingByName('table').name);
+    itc.checkEq('can get table', 'table', room.get(table).name);
+    room.take(table);
+    itc.checkEq('dropping table', true, room.drop('table'));
+    itc.checkEq('not carrying table', false, room.isCarryingByName('table').name);
+
 
     itc.zeroCounts();   // Clear counts for coverage report.
     itc.usage();        // Report for coverage.
@@ -501,4 +653,14 @@ player.take(beer);  // mulitple beer allowed
 player.take(table); // does not happen.
 ***/
 
+
+/**************** Self Testing **********
+To perform internal selfTest:
+export  DICT_TESTING=1
+export  ROOM_TESTING=1
+export  SIMPLE_MAIN_TESTING=1
+
+export  DICT_TESTING=1 ROOM_TESTING=1 SIMPLE_MAIN_TESTING=1
+unset DICT_TESTING ROOM_TESTING SIMPLE_MAIN_TESTING
+**********************************************/
 
