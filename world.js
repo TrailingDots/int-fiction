@@ -340,6 +340,7 @@ function Room(name) {
     // Key: the direction.
     // Value: the room name for that direction.
     self.exits = Dict();
+
     
     // Contents of the room
     self.contents = Container(self.name);
@@ -376,6 +377,7 @@ Room.prototype.addExit = function addExit(dir, room) {
     return true;
 };
 
+// Answer the value of a specific exit in a room.
 Room.prototype.getExit = function getExit(dir) {
     var normDir = normalizeDirection(dir);
     if(normDir === undefined) {
@@ -462,11 +464,16 @@ Room.prototype.selfTest = function selfTest() {
     itc.isTesting = true;
     itc.zeroCounts();   // Clear counts for coverage report.
     var room = Room('closet');
-    itc.checkEq('Adding w kitchen', true, room.addExit('w', 'kitchen'));
-    itc.checkEq('Adding s bedroom', true, room.addExit('s', 'bedroom'));
-    itc.checkEq('Adding n garden', true, room.addExit('n', 'garden'));
-    itc.checkEq('w dir already used', undefined, room.addExit('w', 'pool'));
-    itc.checkEq('w still used', undefined, room.addExit('w', 'garage'));
+    var kitchen = Room('kitchen');
+    var bedroom = Room('bedroom');
+    var garden = Room('garden');
+    var pool = Room('pool');
+    var garage = Room('garage');
+    itc.checkEq('Adding w kitchen', true, room.addExit('w', kitchen));
+    itc.checkEq('Adding s bedroom', true, room.addExit('s', bedroom));
+    itc.checkEq('Adding n garden', true, room.addExit('n', garden));
+    itc.checkEq('w dir already used', undefined, room.addExit('w', pool));
+    itc.checkEq('w still used', undefined, room.addExit('w', garage));
     var roomName = room.getExit('w');
     itc.checkEq('w room must be kitchen', 'kitchen', roomName);
     itc.checkEq('bogus room must be undefined', room.getExit('bogus'));
@@ -519,6 +526,12 @@ function normalizeDirection(dir) {
     }
     return undefined;   // Illegal dir
 }
+
+// Connect room1 and room2 with indicated directions.
+/*
+function connect(room1, dir1, room2, dir2) {
+    if(room1.
+*/
 
 function say(things) {
     'use strict';
@@ -607,7 +620,15 @@ function simpleMain() {
     var chair = Item('chair');
     var table = Item('table');
     var stool = Item('stool');
-    room = Room('room');
+
+    var room = Room('room');
+    var garden = Room('garden');
+    room.addExit('n', garden);
+    garden.addExit('s', room);
+    itc.checkEq('room n is garden', 'garden', room.getExit('n').name);
+    itc.checkEq('garden s is room', 'room', garden.getExit('s').name);
+    itc.checkEq('room e is undefined', undefined, room.getExit('e'));
+
     itc.checkEq('take chair', true, room.take(chair));
     itc.checkEq('take table', true, room.take(table));
     itc.checkEq('carrying chair',  'chair', room.isCarryingByName('chair').name);
@@ -617,6 +638,7 @@ function simpleMain() {
     itc.checkEq('dropping table', true, room.drop('table'));
     itc.checkEq('not carrying table', false, room.isCarryingByName('table').name);
 
+    itc.checkEq('room has north exit free', undefined, room.getExit('n'));
 
     itc.zeroCounts();   // Clear counts for coverage report.
     itc.usage();        // Report for coverage.

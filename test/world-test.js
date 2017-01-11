@@ -73,6 +73,16 @@ describe('Testing the Player object', function () {
             world.say('This is the say after a blank line.');
         });
 
+        it('should allow rooms to be connected', function() {
+            var room = world.Room('room');
+            var garden = world.Room('garden');
+            assert.equal(true, room.addExit('n', garden));
+            assert.equal(true, garden.addExit('s', room));
+            assert.equal('garden', room.getExit('n').name);
+            assert.equal('room', garden.getExit('s').name);
+            assert.equal(undefined, garden.getExit('w'));
+        });
+
     });
 
     describe('Player interactions', function() {
