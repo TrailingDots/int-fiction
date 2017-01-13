@@ -32,6 +32,9 @@
 # Coverage files not needed. Ignore any "missing operand" msgs.
 /usr/bin/rm -rf coverage 2>/dev/null
 
+# Remove various cruft files
+/usr/bin/rm typescript
+
 ############# Backup everything left
 
 DATE=$(date '+%y%m%d-%H%M%S')
