@@ -8,6 +8,7 @@ var inspect = require('util').inspect;
 var R = require('ramda');
 var util = require('util');
 var reportObject = require('./lib/reportObject');
+var lcl_utils = require('./lib/lcl_utils');
 
 // Misc utility fcns
 function say(things) {
@@ -323,9 +324,10 @@ Item.init = function init(name, description) {
     // Some, like tables, cannot be carried.
     this.canCarry = true;
 
-    // true if uniques only like beer. Gold is not unique.
+    // false if multiples OK like beer or gold.
     // When dropping/deleting this item, the count gets 
-    // set to 0.
+    // decremented. When the count reaches 0, the item
+    // disappears.
     this.onlySingle = true;
     this.count = 0;
 
@@ -414,11 +416,11 @@ Item.selfTest();
 
 // A Player represents a name, description and other
 // traits. A Player has a container of items.
-var Player = Object.create(Item);
+var Player = Object.create(Container);
 Player.init = function (name, description) {
     'user strict';
-    Item.init();
-    this.name = name;
+    Container.init();
+    this.name = name || 'Frobitz';
     this.description = description;
     this.race = 'Orc';
 };
@@ -459,15 +461,16 @@ Room.init = function init(name, description) {
     // Map of exits. 
     // Key: the direction.
     // Value: the room name for that direction.
-    this.exits = {};
+    this.exits = Object.create(Container);
+    this.exits.init();
 };
 
 Room.exitStrings = function exitStrings() {
     var results= [];
     var self = this;    // Better: See: Effective JS, p. 100.
-    for(var anExit in this.exits) {
+    for(var anExit in this.exits.elements) {
         if(this.elements.hasOwnProperty(anExit)) {
-            results.push(anExit + ': ' + self.exits[anExit]);
+            results.push(anExit + ': ' + self.exits.get(anExit));
         }
     }
     return results;
@@ -476,20 +479,28 @@ Room.exitStrings = function exitStrings() {
 
 // Add an exit to a room.
 // Answer true if added.
+// Answer false if room already used.
 Room.addExit = function addExit(dir, room) {
     var normDir = normalizeDirection(dir);
     if(normDir === undefined) {
         say(normDir + ' is not a valid direction');
         return undefined;
     }
-    var item = this.exits[dir];
+    var item = this.exits.get(dir);
     if(item !== undefined) {
         // Th!s direction already used.
-        say(normDir + ' is already in use.');
-        return undefined;
+        say(normDir + ' is already in use  for ' + this.name);
+        return false;
     }
+    // Cannot add and exit to the room itself
+    // (Might yield Escher style topology!
     // Safe to add item
-    this.exits[normDir] = room;
+    if(room.name === this.name) {
+        say(room.name + ' cannot connect to itself.');
+        return false;
+    }
+
+    this.exits.set(normDir, room);
     return true;
 };
 
@@ -497,25 +508,44 @@ Room.addExit = function addExit(dir, room) {
 Room.getExit = function getExit(dir) {
     var normDir = normalizeDirection(dir);
     if(normDir === undefined) {
-        say(normDir + ' is not a valid direction');
+        //say(normDir + ' is not a valid direction');
         return undefined;
     }
-    var item = this.exits[dir];
+    var item = this.exits.get(dir);
     if(item === undefined) {
-        say('You can not go ' + dir);
+        say(this.name + ' no exit ' + dir);
         return undefined;
     }
     return item;
 };
 
-Room.selfTest = function selfTest() {
-    if(!process.env.ROOM_TESTING) {
-        return;
-    }
+// Given a room, return a dictionary with all
+// directions with key as direction, value = new room
+Room.getAllExits = function getAllExits() {
+    var out = {};
+    var self = this;
+    var dirs = ['n', 'e', 's', 'w'];
+    for(var ndx in dirs) {
+        var dir = dirs[ndx];
+        if(self.exits.has(dir) === undefined) {
+            console.dir(self.name + ' dir occupied:' + dir);
+        } else {
+            out[dir] = self.exits.get(dir);
+        }}
+    return out;
+};
 
-    console.log('\n------------------------------');
-    console.log('    Testing the Room object');
-    console.log('------------------------------\n');
+Room.printAllExits = function printAllExits(title) {
+    var allExits = this.getAllExits();
+    console.log(title + ' For room ' + this.name + ': all exits:');
+    for(var dir in allExits) {
+        var exitDir = allExits[dir];
+        var exitName = exitDir ? exitDir.name : 'unused-exit';
+        console.log('\t' + dir + ': ' + exitName);
+    }
+};
+
+Room.selfTest = function selfTest() {
     // Provide inline testing of code.
     var inline = require('./lib/inlineTest.js');
     var itc = inline.inTestConfig();
@@ -523,9 +553,19 @@ Room.selfTest = function selfTest() {
     itc.isTesting = true;
     itc.zeroCounts();   // Clear counts for coverage report.
 
+    if(!inline.isSelfTesting('ROOM_TESTING')) {
+        return;
+    }
+
+    console.log('\n------------------------------');
+    console.log('    Testing the Room object');
+    console.log('------------------------------\n');
+
+    var ret;  // General catchall for return status
 
     var room = Object.create(Room);
     room.init('closet');
+    room.printAllExits('initial closet, no exits\n');
 
     var kitchen = Object.create(Room);
     kitchen.init('kitchen');
@@ -542,14 +582,37 @@ Room.selfTest = function selfTest() {
     var garage = Object.create(Room);
     garage.init('garage');
 
-    itc.checkEq('Adding w kitchen', true, room.addExit('w', kitchen));
+    var table = Object.create(Item);
+    table.init('aTable');
+    ret = room.take(table);
+    ret = room.drop(table);
+    ret = room.isCarrying('table');
+    itc.checkEq('room dropped single table', false, ret);
+
+    console.log('orig closet');
+    room.printAllExits('orig closet, no exits\n');
+
+    ret = room.addExit('w', kitchen);
+    room.printAllExits('Only w kitchen should exist\n');
+    ret = room.addExit('w', kitchen);
+    room.printAllExits('Again: Only w kitchen should exist. Cannot add 2 kitchens\n');
+
+    itc.checkEq('Adding w kitchen', false, room.addExit('w', kitchen));
+    room.printAllExits('Once again - only one kitchen.');
+    itc.checkEq('w kitchen is in use already', false, room.addExit('w', garage));
+    room.printAllExits('Repeat attempt to add w kitchen');
     itc.checkEq('Adding s bedroom', true, room.addExit('s', bedroom));
     itc.checkEq('Adding n garden', true, room.addExit('n', garden));
-    itc.checkEq('w dir already used', undefined, room.addExit('w', pool));
-    itc.checkEq('w still used', undefined, room.addExit('w', garage));
-    var roomName = room.getExit('w');
+    itc.checkEq('w dir still used', false, room.addExit('w', pool));
+
+    room.printAllExits('w should be in use, e is free\n');
+    itc.checkEq('w still used', false, room.addExit('w', garage));
+    itc.checkEq('e lies the garage', true, room.addExit('e', garage));
+
+    room.printAllExits('All exits used: s=bedroom,n=garden,w=kitchen,e=garage\n');
+    var roomName = room.getExit('w').name;
     itc.checkEq('w room must be kitchen', 'kitchen', roomName);
-    itc.checkEq('bogus room must be undefined', room.getExit('bogus'));
+    itc.checkEq('bogus room must be undefined', undefined, room.getExit('bogus'));
     var exStr = room.exitStrings();
     console.log("Room Exit strings:" + exStr);
 
@@ -561,21 +624,35 @@ Room.selfTest = function selfTest() {
     // Test for all "byName" fcns
     var beer = Object.create(Item);
     beer.init('beer');
+    beer.onlySingle = false;
     var gold = Object.create(Item);
     gold.init('gold');
+    gold.onlySingle = false;
 
     var player = Object.create(Player);
     player.init('byName');
-    var ret = player.take(beer);
+    ret = player.take(beer);
+    itc.checkEq('taking beer should be ok', true, ret);
+    ret = player.take(beer);
+    itc.checkEq('take another beer', true, ret);
 
-    itc.checkEq('byName takes beer', true, player.take(beer));
     itc.checkEq('byName takes gold', true, player.take(gold));
-    var beerCarrier = player.isCarryingByName('beer');
+    var beerCarrier = player.isCarrying('beer');
     console.log('beerCarrier:' + inspect(beerCarrier));
-    itc.checkEq('byName isCarrying beer', 'beer', beerCarrier.name);
-    itc.checkEq('byName isCarrying foobar', undefined, player.isCarryingByName('foobar'));
-    itc.checkEq('byName isCarrying beer', 'beer', player.isCarryingByName('beer').name);
-    itc.checkEq('byName beer count must be 1', 1, player.isCarryingByName('beer').count);
+    itc.checkEq('isCarrying beer', true, player.isCarrying('beer'));
+    itc.checkEq('isCarrying foobar', false, player.isCarrying('foobar'));
+
+    ret = player.get('beer');
+    console.log('player.get("beer"):' + ret);
+    ret = player.get('beer').count;
+    console.log('player.get("beer").count:' + ret);
+    ret = player.isCarrying('beer');
+    console.log('player.isCarrying("beer"):' + ret);
+
+    itc.checkEq('player.isCarrying beer', true, player.isCarrying('beer'));
+    ret = player.get('beer').count;
+    console.log('beer count:' + ret);
+    itc.checkEq('beer count must be 2', 2, player.get('beer').count);
 
     itc.reportResults();
     itc.zeroCounts();   // Clear counts for coverage report.
@@ -584,4 +661,14 @@ Room.selfTest = function selfTest() {
     console.log('------------------------------------\n');
 };
 
+Room.selfTest();
+
+
+module.exports.Dict = Dict;
+module.exports.Item = Item;
+module.exports.Player = Player;
+module.exports.Container = Container;
+module.exports.Room = Room;
+module.exports.say = say;
+module.exports.blank = blank;
 
