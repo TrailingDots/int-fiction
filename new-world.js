@@ -148,7 +148,6 @@ Dict.selfTest = function () {
     console.log('    end of Testing the Dict object');
     console.log('------------------------------------\n');
 };
-Dict.selfTest();
 
 
 // Answers with a new instance of Container.
@@ -167,13 +166,14 @@ Container.inventory = function inventory() {
     say('Inventory:');
     for (var name in this.elements) {
         if(this.elements.hasOwnProperty(name)) {
-            say('    ' + name);
+            say('    ' + this.elements[name].count + ': ' + name);
         }
     }
     return true;
 };
 
-// Return the individual items as an array.
+// Return the individual items as a list.
+// No specific order of items exist.
 Container.inventoryList = function inventoryList() {
     var items = [];
     for (var name in this.elements) {
@@ -306,7 +306,6 @@ Container.selfTest = function () {
     console.log('    end of Container selfTest');
     console.log('------------------------------------\n');
 };
-Container.selfTest();
 
 // An Item gets placed into the contents of something.
 // E.g.: A candle onto a table, gold into a Player's pocket.
@@ -315,8 +314,6 @@ Container.selfTest();
 var Item = Object.create({});
 Item.init = function init(name, description) {
     'use strict';
-    // Delegated call
-    Container.init();
     this.name = name || '';
     this.description = description || ('You do not see anything special about ' + this.name);
 
@@ -411,7 +408,6 @@ Item.selfTest = function () {
     console.log('    end of Testing the Item');
     console.log('------------------------------------\n');
 };
-Item.selfTest();
 
 
 // A Player represents a name, description and other
@@ -425,6 +421,9 @@ Player.init = function (name, description) {
     this.race = 'Orc';
 };
 
+// Return a "standard" direction name.
+// A "standard" is the abbreviated from of a direction.
+// undefined results from an unknown direction.
 function normalizeDirection(dir) {
     'use strict';
     // A list directions. Aliases may be used. An alias gets mapped to
@@ -449,6 +448,35 @@ function normalizeDirection(dir) {
     }
     return undefined;   // Illegal dir
 }
+
+// Given a room and a player, move the player a 
+// desired direction - if possible.
+// Returns true if transition performed.
+// Returns false if no transition in the desired 
+// direction possible.
+// @param thisRoom = The room the player currently resides in.
+// @param direction = The exit the player will take. The value
+//      in this direction contains the room the player moves to.
+// NOTE: The "to" room creates a 1-way tunnel.
+// The caller must setup proper exits for each room.
+Player.movePlayer = function movePlayer(thisRoom, direction) {
+    var dir = normalizeDirection(direction);
+    if(dir === undefined) {
+        say('Unknown direction: ' + direction + 
+                ' ' + player.name + ' cannot move ' + direction +
+                ' to room ' + thisRoom.name);
+        return false;
+    }
+    var newRoom = thisRoom.getExit(dir);
+    if(newRoom === undefined) {
+        say('Cannot exit this room ' + direction + 
+                ' by ' + player.name);
+        return false;
+    }
+    // OK to move the player
+    thisRoom.drop(this);
+    newRoom.take(this);
+};
 
 
 var Room = Object.create(Container);
@@ -545,17 +573,17 @@ Room.printAllExits = function printAllExits(title) {
     }
 };
 
-Room.selfTest = function selfTest() {
+Room.selfTest = function () {
     // Provide inline testing of code.
     var inline = require('./lib/inlineTest.js');
+    if(!inline.isSelfTesting('ROOM_TESTING')) {
+        return;
+    }
     var itc = inline.inTestConfig();
     itc.zeroCounts();
     itc.isTesting = true;
     itc.zeroCounts();   // Clear counts for coverage report.
 
-    if(!inline.isSelfTesting('ROOM_TESTING')) {
-        return;
-    }
 
     console.log('\n------------------------------');
     console.log('    Testing the Room object');
@@ -654,6 +682,49 @@ Room.selfTest = function selfTest() {
     console.log('beer count:' + ret);
     itc.checkEq('beer count must be 2', 2, player.get('beer').count);
 
+    console.log('')
+    console.log('Testing moving players between rooms');
+    var bedroom = Object.create(Room);
+    bedroom.init('bedroom');
+    var bath = Object.create(Room);
+    bath.init('bath');
+
+    // A player to be moved between rooms
+    var player = Object.create(Player);
+    player.init('Dudley DoRight');
+    player.canCarry = true;
+
+    // Put the player in the bedroom
+    ret = bedroom.take(player);
+    ret = bedroom.isCarrying(player);
+    if(ret) {
+        console.log('bedroom has player in it');
+    } else {
+        console.log('ERROR: bedroom does NOT have player in it');
+    }
+    // Now move player
+    // Go north to the bath
+    bedroom.addExit('n', bath);
+    ret = bedroom.getExit('n');
+    itc.checkEq('n exit for bedroom should exist', 'bath', ret.name);
+    player.movePlayer(bedroom, 'n');
+    console.log('inventory of bedroom:');
+    bedroom.inventory();
+
+    // player not in bedroom
+    ret = bedroom.isCarrying(player);
+    console.log('player not in bedroom (should be false)' + ret);
+
+    // player in the bath
+    ret = bath.isCarrying(player);
+    console.log('player in bath (should be true)' + ret);
+    console.log('');
+
+    console.log('bath inventory - should have player');
+    bath.inventory();
+    console.log('bedroom inventory - should be empty');
+    bedroom.inventory();
+
     itc.reportResults();
     itc.zeroCounts();   // Clear counts for coverage report.
     console.log('------------------------------------');
@@ -661,6 +732,9 @@ Room.selfTest = function selfTest() {
     console.log('------------------------------------\n');
 };
 
+Dict.selfTest();
+Container.selfTest();
+Item.selfTest();
 Room.selfTest();
 
 

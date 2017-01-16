@@ -10,7 +10,7 @@
     "lint": "jshint *.js lib/*.js test/*.js; exit 0",
     "env": "env",
     "wc": "wc *.js lib/*.js test/*.js package.json README.md backup.sh",
-    "coverage": "istanbul cover _mocha -- --ui bdd -R spec -t 5000 --compilers js:babel-register world.js inlineTest.js test/world-test.js ; echo Report at: $(pwd)/coverage/lcov-report/index.html",
+    "coverage": "istanbul cover _mocha -- --ui bdd -R spec -t 5000 --compilers js:babel-register new-world.js lib/lcl_utils.js lib/inlineTest.js test/new-world-test.js ; echo Report at: $(pwd)/coverage/lcov-report/index.html",
     "pretest": "npm run lint"
   },
   "author": "",
