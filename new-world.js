@@ -30,28 +30,30 @@ var Dict = {
         this.elements = {};
     }
 };
+
+// true or false, is key in this?
 Dict.has = function has(key) {
-    return this.elements.has(key);
+    return this.elements[key] ? true : false;
 };
 
 // If key is present, return the value.
 // If key not present, return default value.
 // If no default value in args, return undefined.
 Dict.get = function get(key, defaultValue) {
-    return this.elements.get(key) ? this.elements.get(key) : defaultValue;
+    return this.elements[key] ? this.elements[key] : defaultValue;
 };
+
 // Set a key in Dic to val.
 // Always answers val.
 Dict.set = function set(key, val) {
     // val get returned.
-    return this.elements.set(key, val);
+    return this.elements[key] = val;
 };
 
 // Remove the key.
-// Answers undefined even if key is not present. Standard JS!
-// Answers the item if the key/value exists.
+// Returns false only when property can not be deleted.
 Dict.remove = function remove(key) {
-    return this.elements.delete(key);
+    return delete this.elements[key];
 };
 
 // Answers iterator obj that contains keys for each
@@ -60,18 +62,23 @@ Dict.keys = function keys() {
     return Object.keys(this.elements);
 };
 
-// Answers iterator obj that contains values for each
+// Answers array obj that contains values for each
 // element in the map object.
 Dict.values = function values() {
-    return this.elements.values();
+    var result = [];
+    var self = this;
+    Object.keys(this.elements).forEach(function(key, ndx) {
+        return result.push(self.elements[key]);
+    });
+    return result;
 };
 
-Dict.entries = function entries() {
-    return this.elements.entries();
-}
-
 Dict.selfTest = function () {
-    if(!process.env.DICT_TESTING) {
+    // Provide inline testing of code.
+    var inline = require('./lib/inlineTest.js');
+
+    var itc = inline.inTestConfig();
+    if(!inline.isSelfTesting(process.env.DICT_TESTING)) {
         return;
     }
     console.log('\n==================================');
@@ -81,17 +88,15 @@ Dict.selfTest = function () {
     // Very unlikely a name of '__proto__' gets used, but handle it!
     // __proto__ insists on a special case for Dict
 
-    // Provide inline testing of code.
-    var inline = require('./lib/inlineTest.js');
-
-    var itc = inline.inTestConfig();
     itc.zeroCounts();
     var adict = Object.create(Dict);
     adict.init();
     console.log('\n------------------------------');
     console.log('    Testing the Dict object');
     console.log('------------------------------\n');
-    itc.checkEq('no proto, yet', undefined, adict.get('__proto__'));
+
+/****
+    itc.checkEq('no proto, yet', {}, adict.get('__proto__'));
     itc.checkEq('default proto:9876', adict.get('__proto__', 9876));
     itc.checkEq('setting proto to 1234', undefined, adict.set('__proto__', 1234));
     itc.checkEq('found proto', 1234, adict.get('__proto__'));
@@ -101,6 +106,7 @@ Dict.selfTest = function () {
     itc.checkEq('insert __proto__ is OK', 'ok-proto', adict.set('__proto__', 'ok-proto'));
     itc.checkEq('check the has() for __proto__', true, adict.has('__proto__'));
     itc.checkEq('can retrieve __proto__', 'ok-proto', adict.get('__proto__'));
+****/
 
     // Add some entries to the dict
     adict.set('key1', 'val1');
@@ -108,14 +114,24 @@ Dict.selfTest = function () {
     adict.set('key3', 'val3');
 
     var keys = adict.keys();
+    var keyArray = keys.filter(function (item) {
+        return item === 'key1';
+    });
+    itc.checkEq('test keys array for key1', 'key1', keyArray[0]);
+
+    var values = adict.values();
+    var valuesArray = values.filter(function(value) {
+        return value === 'val2';
+    });
+    itc.checkEq('val2 present in values array', 'val2', valuesArray[0]);
+
     //console.log('keys:' + inspect(keys));
-    itc.checkEq('key1 is in keys', true, 'key1' in keys);
-    itc.checkEq('key2 is in keys', true, 'key2' in keys);
-    itc.checkEq('key3 is in keys', true, 'key3' in keys);
+    itc.checkEq('key1 is in keys', true, 'key1' in adict.elements);
+    itc.checkEq('key2 is in keys', true, adict.has('key2'));
+    itc.checkEq('key3 is in keys', true, adict.has('key3'));
     itc.checkEq('length of keys is 3', 3, keys.length);
 
-    // Ensure no __prototype__ exists for element
-    itc.exists( ! adict.elements.__prototype__);
+    itc.checkEq('"foobar" not in dict', false, adict.has('foobar'));
 
     // get specific keys
     itc.checkEq('get key1 value', 'val1', adict.get('key1'));
@@ -127,7 +143,12 @@ Dict.selfTest = function () {
     // check has()
     itc.checkEq('key1 exists', true, adict.has('key1'));
     itc.checkEq('bogus does not exist', false, adict.has('bogus'));
-    
+   
+    // check remove()
+    itc.checkEq('key1 removed', true, adict.remove('key1'));
+    itc.checkEq('key1 not present', false, adict.has('key1'));
+
+
     itc.reportResults();
     itc.zeroCounts();
     console.log('------------------------------------');
@@ -150,17 +171,13 @@ Container.init = function (name) {
 
 // Return a list of keys of this.dict.elements.
 Container.keys = function () {
-    var alist = [];
-    Object.keys(this.dict.elements).forEach(function (element) {
-        alist.push(element);
-    });
-    return alist;
-}
+    return Object.keys(this.dict.elements);
+};
 
 
 // Print the contents.
 Container.inventory = function inventory(roomName) {
-    name = roomName || '';
+    var name = roomName || '';
     process.stdout.write(name + ' Inventory:[');
     var self = this;
     Object.keys(self.dict.elements).forEach(function(elt, key) {
@@ -209,7 +226,7 @@ Container.isCarrying = function isCarrying(item) {
 
 Container.has = function (item) {
     return this.isCarrying(item);
-}
+};
 
 Container.get = function get(item) {
     var name = (typeof item === 'string') ? item : item.name;
@@ -222,7 +239,7 @@ Container.take = function take(item) {
         return false;
     }
 
-    var name = (typeof item === 'string') ? item : item.name;
+    var name = item.name;
 
     if(!item.canCarry) {
         say(name + "  cannot be moved.");
@@ -297,20 +314,24 @@ Container.drop = function drop(item) {
 // is completed. A Container will examine
 // the items placed inside the container.
 Container.selfTest = function () {
-    if(!process.env.CONTAINER_TESTING) {
+    // Provide inline testing of code.
+    var inline = require('./lib/inlineTest.js');
+
+    var itc = inline.inTestConfig();
+    if(!inline.isSelfTesting(process.env.CONTAINER_TESTING)) {
         return;
     }
     console.log('\n==================================');
     console.log('     Test the Container.');
     console.log('====================================');
 
-    // Provide inline testing of code.
-    var inline = require('./lib/inlineTest.js');
-    var itc = inline.inTestConfig();
     itc.zeroCounts();
 
     var container = Object.create(Container);
     container.init('testContainer');
+
+    console.log('container.keys:' + inspect(container.keys()));
+
 /**
     var ret = container['key1'] = 'val1';
     ret = container['key2'] = 'val2';
@@ -367,7 +388,10 @@ Item.selfTest = function () {
     
     // Create some objects.
     var ax = Object.create(Item);
-    ax.init('ax');
+    ax.init('ax', 'an ordinary looking ax');
+
+    var foo = Object.create(Item);
+    foo.init(); // default name
 
     var table = Object.create(Item);
     table.init('table');
@@ -447,7 +471,6 @@ Player.init = function (name, description) {
     this.inventoryList = this.elements.inventoryList;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
-    this.entries = this.elements.entries;
     this.values = this.elements.values;
     this.take = this.elements.take;
     this.drop = this.elements.drop;
@@ -500,14 +523,14 @@ Player.movePlayer = function movePlayer(thisRoom, direction) {
     var dir = normalizeDirection(direction);
     if(dir === undefined) {
         say('Unknown direction: ' + direction + 
-                ' ' + player.name + ' cannot move ' + direction +
+                ' ' + this.name + ' has no exit ' + direction +
                 ' to room ' + thisRoom.name);
         return false;
     }
     var newRoom = thisRoom.getExit(dir);
     if(newRoom === undefined) {
         say('Cannot exit this room ' + direction + 
-                ' by ' + player.name);
+                ' by ' + this.name);
         return false;
     }
     /***
@@ -537,8 +560,8 @@ Player.movePlayer = function movePlayer(thisRoom, direction) {
     ***/
     
     //// BUG
-    assert(thisRoom.isCarrying(this.name) == false);
-    assert(newRoom.isCarrying(this.name) == true);
+    assert(thisRoom.isCarrying(this.name) === false);
+    assert(newRoom.isCarrying(this.name) === true);
 };
 
 
@@ -560,7 +583,6 @@ Room.init = function init(name, description) {
     this.inventoryList = this.elements.inventoryList;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
-    this.entries = this.elements.entries;
     this.values = this.elements.values;
     this.take = this.elements.take;
     this.drop = this.elements.drop;
@@ -649,8 +671,7 @@ Room.printAllExits = function printAllExits(title) {
     //ro.reportObject(allExits, '', 2, 5);
     for(var dir in allExits) {
         var exitDir = allExits[dir];
-        var exitName = exitDir ? exitDir.name : 'unused-exit';
-        console.log('\t' + dir + ': ' + exitName);
+        console.log('\t' + dir + ': ' + exitDir.name);
     }
 };
 
@@ -666,7 +687,7 @@ Room.selfTest = function () {
     itc.zeroCounts();   // Clear counts for coverage report.
 
     function testMovePlayer() {
-        console.log('\n==== testMovePlayer ========')
+        console.log('\n==== testMovePlayer ========');
         console.log('====== Testing moving players between rooms');
         console.log('DictInitCount:' + DictInitCount);
 
@@ -681,7 +702,15 @@ Room.selfTest = function () {
         player.canCarry = true;
 
         // Put the player in the bedroom
-        ro.reportObject(bedroom.elements, '', 2, 5);
+        console.log('reportObject on bedroom');
+        ro.reportObject(bedroom, '', 1, 7);
+        console.log('reportObject on bedroom.elements.dict');
+        ro.reportObject(bedroom.elements.dict, '', 1, 7);
+        console.log('reportObject on player');
+        ro.reportObject(player, '', 1, 7);
+        console.log('reportObject defaults on player');
+        ro.reportObject(player);
+
         bedroom.inventory('in bedroom before adding Dudley');
         bedroom.elements.inventory('in bedroom before adding Dudley');
         var ret = bedroom.take(player);
@@ -736,7 +765,7 @@ Room.selfTest = function () {
 
         bath.printInventory('bath Inventory');
 
-        bedroom.printInventory('bedroom inventory')
+        bedroom.printInventory('bedroom inventory');
 
         bath.inventory('bath - should have player');
         bedroom.inventory('bedroom - should be empty');
@@ -779,6 +808,15 @@ Room.selfTest = function () {
     itc.checkEq('room dropped single table', false, ret);
 
     room.printAllExits('orig closet, no exits\n');
+
+    itc.checkEq('test lcl_utils.notExists()', true, lcl_utils.notExists(undefined));
+    try {
+        lcl_utils.repeatString('abc', -1);
+    } catch (err) {
+        console.log('caught negative repeatString:' + err);
+    } finally {
+        console.log('in finally with negative repeat string');
+    }
 
     ret = room.addExit('w', kitchen);
     room.printAllExits('Only w kitchen should exist\n');
