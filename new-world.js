@@ -372,13 +372,13 @@ Item.init = function init(name, description) {
     this.weight = 1;
 };
 Item.selfTest = function () {
-    if(!process.env.ITEM_TESTING) {
+    var inline = require('./lib/inlineTest.js');
+    if(!inline.isSelfTesting('ITEM_TESTING')) {
         return;
     }
     console.log('\n==================================');
     console.log('     Test the Item.');
     console.log('====================================');
-    var inline = require('./lib/inlineTest.js');
 
     var itc = inline.inTestConfig();
     itc.isTesting = true;
@@ -880,12 +880,6 @@ Room.selfTest = function () {
     console.log('    end of Testing the Room object');
     console.log('------------------------------------\n');
 };
-
-console.log('typeof Dict:' + typeof(Dict));
-console.log('typeof Item:' + typeof(Item));
-console.log('typeof Player:' + typeof(Player));
-console.log('typeof Room:' + typeof(Room));
-console.log('typeof Container:' + typeof(Container));
 
 Dict.selfTest();
 Container.selfTest();
