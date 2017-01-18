@@ -7,7 +7,7 @@ var assert = require('assert');
 var inspect = require('util').inspect;
 var R = require('ramda');
 var util = require('util');
-var reportObject = require('./lib/reportObject');
+var ro = require('./lib/reportObject');
 var lcl_utils = require('./lib/lcl_utils');
 
 // Misc utility fcns
@@ -21,68 +21,54 @@ function blank() {
     console.log('\n');
 }
 
-// Effective JavaScript, p. 121
-var Dict = Object.create({});
-Dict.init = function init() {
-    this.elements = {};
-    this.hasSpecialProto = false;   // has "__proto__" key?
-    this.specialProto = undefined;  // "__proto__" element
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+var DictInitCount = 0;
+var Dict = {
+    init: function init(name) {
+        DictInitCount += 1;
+        this.name = name || 'aDict';
+        this.elements = {};
+    }
 };
 Dict.has = function has(key) {
-    if(key === "__proto__") {
-        return this.hasSpecialProto;
-    }
-    // own property only.
-    return this.hasOwnProperty.call(this.elements, key);
+    return this.elements.has(key);
 };
 
 // If key is present, return the value.
 // If key not present, return default value.
 // If no default value in args, return undefined.
 Dict.get = function get(key, defaultValue) {
-    if(key === "__proto__") {
-        return this.specialProto;
-    }
-    // own property only
-    return this.elements[key] ? this.elements[key] : defaultValue;
+    return this.elements.get(key) ? this.elements.get(key) : defaultValue;
 };
 // Set a key in Dic to val.
 // Always answers val.
 Dict.set = function set(key, val) {
-    if(key === "__proto__") {
-        this.hasSpecialProto = true;
-        this.specialProto = val;
-    } else {
-        this.elements[key] = val;
-    }
-    return val;
+    // val get returned.
+    return this.elements.set(key, val);
 };
 
 // Remove the key.
 // Answers undefined even if key is not present. Standard JS!
 // Answers the item if the key/value exists.
 Dict.remove = function remove(key) {
-    if(key === "__proto__") {
-        this.hasSpecialProto = false;
-        this.specialProto = undefined;
-    } else {
-        var item = this.elements[key];
-        delete this.elements[key];
-        return item;
-    }
-    return undefined;
+    return this.elements.delete(key);
 };
 
-// Answers a list of keys in the dictionary.
+// Answers iterator obj that contains keys for each
+// element in the map object.
 Dict.keys = function keys() {
-    var items = [];
-    for (var name in this.elements) {
-        if(this.elements.hasOwnProperty(name)) {
-            items.push(this.elements[name]);
-        }
-    }
-    return items;
+    return Object.keys(this.elements);
 };
+
+// Answers iterator obj that contains values for each
+// element in the map object.
+Dict.values = function values() {
+    return this.elements.values();
+};
+
+Dict.entries = function entries() {
+    return this.elements.entries();
+}
 
 Dict.selfTest = function () {
     if(!process.env.DICT_TESTING) {
@@ -154,21 +140,35 @@ Dict.selfTest = function () {
 // Most parts of the game have a Container of some sort.
 // The contents of a Container has only Item instances.
 // A table can have candles, gold and food. 
-var Container = Object.create(Dict);
+//var Container = Object.create(Dict);
+var Container = Object.create({});
 Container.init = function (name) {
-    Dict.init();
     this.name = name || 'xyzzy';
+    this.dict = Object.create(Dict);
+    this.dict.init(this.name);
 };
+
+// Return a list of keys of this.dict.elements.
+Container.keys = function () {
+    var alist = [];
+    Object.keys(this.dict.elements).forEach(function (element) {
+        alist.push(element);
+    });
+    return alist;
+}
 
 
 // Print the contents.
-Container.inventory = function inventory() {
-    say('Inventory:');
-    for (var name in this.elements) {
-        if(this.elements.hasOwnProperty(name)) {
-            say('    ' + this.elements[name].count + ': ' + name);
+Container.inventory = function inventory(roomName) {
+    name = roomName || '';
+    process.stdout.write(name + ' Inventory:[');
+    var self = this;
+    Object.keys(self.dict.elements).forEach(function(elt, key) {
+        if(self.dict.elements.hasOwnProperty(elt)) {
+            process.stdout.write(', ' + elt);
         }
-    }
+    });
+    process.stdout.write(']\n');
     return true;
 };
 
@@ -176,14 +176,20 @@ Container.inventory = function inventory() {
 // No specific order of items exist.
 Container.inventoryList = function inventoryList() {
     var items = [];
-    for (var name in this.elements) {
-        if(this.elements.hasOwnProperty(name)) {
-            items.push(this.elements[name]);
+    for (var name in this.dict.elements) {
+        if(this.dict.elements.hasOwnProperty(name)) {
+            items.push(this.dict.elements[name]);
         }
     }
     return items;
 };
 
+Container.printInventory = function (title) {
+    var keys = Object.keys(this.dict.elements);
+    var keyStr = inspect(keys);
+    process.stdout.write('    Inventory of ' + this.name + ': ' + title);
+    process.stdout.write('\t' + keyStr + '\n');
+};
 
 /**
  * Given an item, determine if that item is in
@@ -198,12 +204,16 @@ Container.isCarrying = function isCarrying(item) {
         return false;
     }
     var name = (typeof item === 'string') ? item : item.name;
-    return this.has(name);
+    return this.dict.elements[name] ? true : false;
 };
+
+Container.has = function (item) {
+    return this.isCarrying(item);
+}
 
 Container.get = function get(item) {
     var name = (typeof item === 'string') ? item : item.name;
-    return Dict.get(name);
+    return this.dict.elements[name];
 };
 
 // Answer true if OK, false otherwise
@@ -223,7 +233,7 @@ Container.take = function take(item) {
     var currItem;
     if(isPresent) {
         // Already have this item, ensure multiples OK
-        currItem = this.get(name);
+        currItem = this.dict.elements[name];
         if(currItem.onlySingle) {
             say(name + ' is already in the container');
             return false;   
@@ -231,13 +241,20 @@ Container.take = function take(item) {
     } else {
         currItem = item;
     }
+    /***
     // Save a clone and NOT the item reference!
     // If the item exists, inc in the Dict to prevent
     // shadows. See p. 90, This & Object Prototypes
     var clonedItem = R.clone(currItem);
-    clonedItem.count += 1;
-    console.log(clonedItem.name + ' clone saved, count:' + clonedItem.count);
-    this.set(clonedItem.name, clonedItem);
+    ***/
+    currItem.count += 1;
+    if(isNaN(currItem.count)) {
+        console.log('got count === NaN   WTF!');
+    }
+    this.dict.elements[currItem.name] = currItem;
+
+    var keys = Object.keys(this.dict.elements);
+    //console.log('take: ' + item.name + ' thisContainer.keys:' + inspect(keys))
     return true;
 };
 
@@ -247,13 +264,13 @@ Container.take = function take(item) {
 // If the player does not have the item, return false. 
 // TODO: Need a routine to drop the item if the count > 0, such as beer.
 Container.drop = function drop(item) {
-    if(item === undefined) {
+    if (item === undefined) {
         return false;
     }
     var name = (typeof item === 'string') ? item : item.name;
     var isStored = this.isCarrying(name);
-    if(!isStored) {
-        if(item) {
+    if (!isStored) {
+        if (item) {
             say(name + ' is not present.');
         } else {
             say('"undefined item" is not present.');
@@ -261,13 +278,17 @@ Container.drop = function drop(item) {
 
         return false;
     }
-    var storedItem = this.get(name);
-    if(storedItem.count > 1) {
+
+    var storedItem = this.dict.elements[name];
+    if (storedItem.count > 0) {
         storedItem.count -= 1;
-        return true;
     }
-    console.log('drop count:' + storedItem.count);
-    this.remove(name);
+
+    if (storedItem.count <= 0) {
+        delete this.dict.elements[name];
+        assert( ! this.has(storedItem.name));
+    }
+
     return true;
 };
 
@@ -290,16 +311,15 @@ Container.selfTest = function () {
 
     var container = Object.create(Container);
     container.init('testContainer');
-
-    var ret = container.set('key1', 'val1');
-    ret = container.set('key2', 'val2');
-    ret = container.set('key3', 'val3');
-    itc.checkEq('set key1 to val1', 'val1', container.set('key1', 'val1'));
-    itc.checkEq('get key1', 'val1', container.get('key1', 'val1'));
+/**
+    var ret = container['key1'] = 'val1';
+    ret = container['key2'] = 'val2';
+    ret = container['key3'] = 'val3';
+    itc.checkEq('set key1 to val1', 'val1', (container['key1'] = 'val1'), 'val1');
+    itc.checkEq('get key1', 'val1', container['key1'], 'val1');
     var aList = container.inventoryList();
-    container.inventory();
-
-
+    container.inventory('key 1 2 3 test');
+***/
     itc.reportResults();
     itc.zeroCounts();
     console.log('------------------------------------');
@@ -311,7 +331,7 @@ Container.selfTest = function () {
 // E.g.: A candle onto a table, gold into a Player's pocket.
 // The contents dict contains instances of Item. Each Item
 // has a name.
-var Item = Object.create({});
+var Item = Object.create(null);
 Item.init = function init(name, description) {
     'use strict';
     this.name = name || '';
@@ -379,7 +399,7 @@ Item.selfTest = function () {
     itc.checkEq('take gold.', true, container.take(gold));
     itc.checkEq('multiple gold OK.', true, container.take(gold));
     itc.checkEq('have 2 pieces of gold', 2, container.get('gold').count);
-    itc.checkEq('orig gold has 0 count', 0, gold.count);
+    // Needed?  itc.checkEq('orig gold has 0 count', 0, gold.count);
 
     console.log(' Now drop 1 piece gold');
     var ret = container.get('gold');
@@ -412,13 +432,30 @@ Item.selfTest = function () {
 
 // A Player represents a name, description and other
 // traits. A Player has a container of items.
-var Player = Object.create(Container);
+var Player = Object.create({});
 Player.init = function (name, description) {
     'user strict';
-    Container.init();
     this.name = name || 'Frobitz';
-    this.description = description;
+    this.description = description || '';
+    this.count = 0; // To ease inventory listing.
     this.race = 'Orc';
+    this.elements = Object.create(Container);
+    this.elements.init('Player-' + name);
+    //
+    // Shortened call sequences - Law of Demeter
+    this.inventory = this.elements.inventory;
+    this.inventoryList = this.elements.inventoryList;
+    this.printInventory = this.elements.printInventory;
+    this.isCarrying = this.elements.isCarrying;
+    this.entries = this.elements.entries;
+    this.values = this.elements.values;
+    this.take = this.elements.take;
+    this.drop = this.elements.drop;
+    this.has = this.elements.has;
+    this.get = this.elements.get;
+    this.set = this.elements.set;
+    this.dict = this.elements.dict;
+    this.keys = this.elements.keys;
 };
 
 // Return a "standard" direction name.
@@ -473,32 +510,73 @@ Player.movePlayer = function movePlayer(thisRoom, direction) {
                 ' by ' + player.name);
         return false;
     }
+    /***
+    console.log('Moving ' + this.name + 
+            ' from ' + thisRoom.name +
+            ' to ' + newRoom.name);
+    console.log('=========================== start of move drop/take ====');
+    thisRoom.printInventory('thisRoom before drop/take');
+    newRoom.printInventory('newRoom before drop/take');
+    ***/
+    
     // OK to move the player
     thisRoom.drop(this);
+
+    //thisRoom.printInventory('after dropping player from ' + thisRoom.name);
+
     newRoom.take(this);
+
+    /***
+    newRoom.printInventory('newRoom after a take player from ' + newRoom.name);
+    thisRoom.printInventory('thisRoom after a take  player from ' + thisRoom.name);
+
+    thisRoom.printInventory(thisRoom.name + ' after drop/take');
+    newRoom.printInventory(newRoom.name + ' after drop/take');
+
+    console.log('=========================== end of move drop/take ====');
+    ***/
+    
+    //// BUG
+    assert(thisRoom.isCarrying(this.name) == false);
+    assert(newRoom.isCarrying(this.name) == true);
 };
 
 
-var Room = Object.create(Container);
+var Room = Object.create({});
 Room.init = function init(name, description) {
     'use strict';
-    Container.init();
     this.name = name || '';
     this.description = description || 'A dull room';
+    this.elements = Object.create(Container);
+    this.elements.init('Room-' + name);
 
     // Map of exits. 
     // Key: the direction.
     // Value: the room name for that direction.
-    this.exits = Object.create(Container);
-    this.exits.init();
+    this.exits = {};   //Object.create(Dict);
+    //
+    // Shortened call sequences - Law of Demeter
+    this.inventory = this.elements.inventory;
+    this.inventoryList = this.elements.inventoryList;
+    this.printInventory = this.elements.printInventory;
+    this.isCarrying = this.elements.isCarrying;
+    this.entries = this.elements.entries;
+    this.values = this.elements.values;
+    this.take = this.elements.take;
+    this.drop = this.elements.drop;
+    this.has = this.elements.has;
+    this.get = this.elements.get;
+    this.set = this.elements.set;
+    this.dict = this.elements.dict;
+    this.keys = this.elements.keys;
 };
 
 Room.exitStrings = function exitStrings() {
     var results= [];
     var self = this;    // Better: See: Effective JS, p. 100.
-    for(var anExit in this.exits.elements) {
-        if(this.elements.hasOwnProperty(anExit)) {
-            results.push(anExit + ': ' + self.exits.get(anExit));
+    for(var anExit in this.exits) {
+        if(this.exits.hasOwnProperty(anExit)) {
+            results.push(anExit + ': ' + self.exits[anExit]);
         }
     }
     return results;
@@ -514,21 +592,23 @@ Room.addExit = function addExit(dir, room) {
         say(normDir + ' is not a valid direction');
         return undefined;
     }
-    var item = this.exits.get(dir);
+    var item = this.exits[normDir];
     if(item !== undefined) {
         // Th!s direction already used.
         say(normDir + ' is already in use  for ' + this.name);
         return false;
     }
-    // Cannot add and exit to the room itself
+    /****
+    // Cannot add an exit to the room itself
     // (Might yield Escher style topology!
     // Safe to add item
     if(room.name === this.name) {
         say(room.name + ' cannot connect to itself.');
         return false;
     }
+    ****/
 
-    this.exits.set(normDir, room);
+    this.exits[normDir] = room;
     return true;
 };
 
@@ -539,7 +619,7 @@ Room.getExit = function getExit(dir) {
         //say(normDir + ' is not a valid direction');
         return undefined;
     }
-    var item = this.exits.get(dir);
+    var item = this.exits[normDir];
     if(item === undefined) {
         say(this.name + ' no exit ' + dir);
         return undefined;
@@ -555,10 +635,10 @@ Room.getAllExits = function getAllExits() {
     var dirs = ['n', 'e', 's', 'w'];
     for(var ndx in dirs) {
         var dir = dirs[ndx];
-        if(self.exits.has(dir) === undefined) {
-            console.dir(self.name + ' dir occupied:' + dir);
+        if(self.exits[dir] === undefined) {
+            console.log(self.name + ' direction occupied:' + dir);
         } else {
-            out[dir] = self.exits.get(dir);
+            out[dir] = self.exits[dir];
         }}
     return out;
 };
@@ -566,6 +646,7 @@ Room.getAllExits = function getAllExits() {
 Room.printAllExits = function printAllExits(title) {
     var allExits = this.getAllExits();
     console.log(title + ' For room ' + this.name + ': all exits:');
+    //ro.reportObject(allExits, '', 2, 5);
     for(var dir in allExits) {
         var exitDir = allExits[dir];
         var exitName = exitDir ? exitDir.name : 'unused-exit';
@@ -584,12 +665,92 @@ Room.selfTest = function () {
     itc.isTesting = true;
     itc.zeroCounts();   // Clear counts for coverage report.
 
+    function testMovePlayer() {
+        console.log('\n==== testMovePlayer ========')
+        console.log('====== Testing moving players between rooms');
+        console.log('DictInitCount:' + DictInitCount);
+
+        var bedroom = Object.create(Room);
+        bedroom.init('bedroom');
+        var bath = Object.create(Room);
+        bath.init('bath');
+
+        // A player to be moved between rooms
+        var player = Object.create(Player);
+        player.init('Dudley');
+        player.canCarry = true;
+
+        // Put the player in the bedroom
+        ro.reportObject(bedroom.elements, '', 2, 5);
+        bedroom.inventory('in bedroom before adding Dudley');
+        bedroom.elements.inventory('in bedroom before adding Dudley');
+        var ret = bedroom.take(player);
+        ret = bedroom.isCarrying(player);
+        if(ret) {
+            console.log('bedroom has player in it');
+        } else {
+            console.log('ERROR: bedroom does NOT have player in it');
+        }
+        bedroom.inventory('bedroom after adding Dudley');
+        bedroom.drop(player);   // Drop DudLey
+        bedroom.inventory('bedroom after dropping Dudley');
+        bedroom.take(player);
+        bedroom.inventory('bedroom after taking Dudley again');
+
+        // Add a few more items to the bedroom
+        var beer = Object.create(Item);
+        beer.init('bedroom-beer');
+        var gold = Object.create(Item);
+        gold.init('bedroom-gold');
+        bedroom.take(beer);
+        bedroom.take(gold);
+        bedroom.inventory('bedroom after taking gold and beer');
+       
+        // Add some items to the bath
+        var vase = Object.create(Item);
+        vase.init('bath-vase');
+        var soap = Object.create(Item);
+        soap.init('bath-soap');
+        bath.take(vase);
+        bath.take(soap);
+        bedroom.inventory('bath after taking vase and soap');
+
+        // move player
+        // Go north to the bath
+        bedroom.addExit('n', bath);
+        ret = bedroom.getExit('n');
+        itc.checkEq('n exit for bedroom should exist', 'bath', ret.name);
+        bedroom.inventory('in bedroom before movePlayer');
+        bath.inventory('in bath before movePlayer');
+        player.movePlayer(bedroom, 'n'); // move player north from bedroom
+        bedroom.printInventory('after movePlayer');
+        bath.printInventory('after movePlayer');
+
+        // player not in bedroom
+        ret = bedroom.isCarrying(player);
+        itc.checkEq('player should not be in bedroom (false)', false,  ret);
+
+        // player in the bath
+        ret = bath.isCarrying(player);
+        itc.checkEq('player should be in bath (true)', true, ret);
+
+        bath.printInventory('bath Inventory');
+
+        bedroom.printInventory('bedroom inventory')
+
+        bath.inventory('bath - should have player');
+        bedroom.inventory('bedroom - should be empty');
+
+        console.log('DictInitCount:' + DictInitCount);
+    }
 
     console.log('\n------------------------------');
     console.log('    Testing the Room object');
     console.log('------------------------------\n');
 
     var ret;  // General catchall for return status
+
+    testMovePlayer();
 
     var room = Object.create(Room);
     room.init('closet');
@@ -617,7 +778,6 @@ Room.selfTest = function () {
     ret = room.isCarrying('table');
     itc.checkEq('room dropped single table', false, ret);
 
-    console.log('orig closet');
     room.printAllExits('orig closet, no exits\n');
 
     ret = room.addExit('w', kitchen);
@@ -642,7 +802,7 @@ Room.selfTest = function () {
     itc.checkEq('w room must be kitchen', 'kitchen', roomName);
     itc.checkEq('bogus room must be undefined', undefined, room.getExit('bogus'));
     var exStr = room.exitStrings();
-    console.log("Room Exit strings:" + exStr);
+    console.log("Room exitStrings:" + exStr);
 
     var room1 = Object.create(Room);
     room1.init('pool');
@@ -658,7 +818,7 @@ Room.selfTest = function () {
     gold.onlySingle = false;
 
     var player = Object.create(Player);
-    player.init('byName');
+    player.init('aName');
     ret = player.take(beer);
     itc.checkEq('taking beer should be ok', true, ret);
     ret = player.take(beer);
@@ -671,59 +831,10 @@ Room.selfTest = function () {
     itc.checkEq('isCarrying foobar', false, player.isCarrying('foobar'));
 
     ret = player.get('beer');
-    console.log('player.get("beer"):' + ret);
-    ret = player.get('beer').count;
-    console.log('player.get("beer").count:' + ret);
-    ret = player.isCarrying('beer');
-    console.log('player.isCarrying("beer"):' + ret);
-
     itc.checkEq('player.isCarrying beer', true, player.isCarrying('beer'));
     ret = player.get('beer').count;
-    console.log('beer count:' + ret);
     itc.checkEq('beer count must be 2', 2, player.get('beer').count);
 
-    console.log('')
-    console.log('Testing moving players between rooms');
-    var bedroom = Object.create(Room);
-    bedroom.init('bedroom');
-    var bath = Object.create(Room);
-    bath.init('bath');
-
-    // A player to be moved between rooms
-    var player = Object.create(Player);
-    player.init('Dudley DoRight');
-    player.canCarry = true;
-
-    // Put the player in the bedroom
-    ret = bedroom.take(player);
-    ret = bedroom.isCarrying(player);
-    if(ret) {
-        console.log('bedroom has player in it');
-    } else {
-        console.log('ERROR: bedroom does NOT have player in it');
-    }
-    // Now move player
-    // Go north to the bath
-    bedroom.addExit('n', bath);
-    ret = bedroom.getExit('n');
-    itc.checkEq('n exit for bedroom should exist', 'bath', ret.name);
-    player.movePlayer(bedroom, 'n');
-    console.log('inventory of bedroom:');
-    bedroom.inventory();
-
-    // player not in bedroom
-    ret = bedroom.isCarrying(player);
-    console.log('player not in bedroom (should be false)' + ret);
-
-    // player in the bath
-    ret = bath.isCarrying(player);
-    console.log('player in bath (should be true)' + ret);
-    console.log('');
-
-    console.log('bath inventory - should have player');
-    bath.inventory();
-    console.log('bedroom inventory - should be empty');
-    bedroom.inventory();
 
     itc.reportResults();
     itc.zeroCounts();   // Clear counts for coverage report.
@@ -731,6 +842,12 @@ Room.selfTest = function () {
     console.log('    end of Testing the Room object');
     console.log('------------------------------------\n');
 };
+
+console.log('typeof Dict:' + typeof(Dict));
+console.log('typeof Item:' + typeof(Item));
+console.log('typeof Player:' + typeof(Player));
+console.log('typeof Room:' + typeof(Room));
+console.log('typeof Container:' + typeof(Container));
 
 Dict.selfTest();
 Container.selfTest();
