@@ -463,6 +463,7 @@ Player.init = function (name, description) {
     this.description = description || '';
     this.count = 0; // To ease inventory listing.
     this.race = 'Orc';
+    this.location = ''; // In what room is this player?
     this.elements = Object.create(Container);
     this.elements.init('Player-' + name);
     //
@@ -658,7 +659,7 @@ Room.getAllExits = function getAllExits() {
     for(var ndx in dirs) {
         var dir = dirs[ndx];
         if(self.exits[dir] === undefined) {
-            console.log(self.name + ' direction occupied:' + dir);
+            ; // console.log(self.name + ' direction occupied:' + dir);
         } else {
             out[dir] = self.exits[dir];
         }}
@@ -667,7 +668,7 @@ Room.getAllExits = function getAllExits() {
 
 Room.printAllExits = function printAllExits(title) {
     var allExits = this.getAllExits();
-    console.log(title + ' For room ' + this.name + ': all exits:');
+    console.log(title + ' for room ' + this.name + ':');
     //ro.reportObject(allExits, '', 2, 5);
     for(var dir in allExits) {
         var exitDir = allExits[dir];
@@ -894,4 +895,5 @@ module.exports.Container = Container;
 module.exports.Room = Room;
 module.exports.say = say;
 module.exports.blank = blank;
+module.exports.normalizeDirection = normalizeDirection;
 
