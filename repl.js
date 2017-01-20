@@ -26,7 +26,7 @@ var currentLocation = wm.startingRoom;
 
 var commands = {
     $debug: function $debug() {
-        debugger;
+        debugger; // HANGS node!!!!
     },
     exits: function exits(args) {
         console.log('exits args:' + args);
@@ -50,10 +50,15 @@ var commands = {
         var dir = world.normalizeDirection(args[1]);
         if(dir === undefined) {
             console.log('"' + args[1] + ': undefined direction');
+            return;
         }
 
         console.log('Current location: ' + currentLocation.name);
-        wm.player.movePlayer(currentLocation, dir);
+        var ret = wm.player.movePlayer(currentLocation, dir);
+        if(!ret) {
+            return;  // error msg already issued.
+        }
+
         currentLocation = currentLocation.exits[dir];
         console.log('updated location:' + currentLocation.name);
     },
@@ -73,8 +78,7 @@ var commands = {
         console.log('drop' + args);
     },
     inventory: function inventory(args) {
-        // Using the room the player is in, print inventory
-        currentLocation.printInventory('room inventory');
+        wm.player.printInventory('room inventory');
     },
     verbs: function verbs(args) {
         console.log(' in verbs: ' + inspect(cmdList(commands)));
@@ -127,7 +131,7 @@ var recursiveAsyncReadLine = function () {
         return rl.close(); //closing RL and returning from function.
     }
     var cmd = parseInput(answer);
-    console.log('split answer:' + inspect(cmd));
+    //console.log('split answer:' + inspect(cmd));
 
     // Map input to command and execute it.
     if(validCmd(cmd[0], commands)) {
@@ -136,8 +140,6 @@ var recursiveAsyncReadLine = function () {
     } else {
         console.log(cmd[0] + ' -> an unknown command');
     }
-
-    //log('Got it! Your answer was: "', answer, '"');
 
     //Calling this function again to ask new question
     recursiveAsyncReadLine(); 

@@ -502,6 +502,10 @@ function normalizeDirection(dir) {
         'south': 's',
         'w': 'w', 
         'west': 'w'};
+    //
+    if(dir === undefined) {
+        return undefined;
+    }
     // Given a direction as a string, map to a standard name.
     var lcDir = dir.toLowerCase();
     if(lcDir in standard) {
@@ -534,33 +538,14 @@ Player.movePlayer = function movePlayer(thisRoom, direction) {
                 ' by ' + this.name);
         return false;
     }
-    /***
-    console.log('Moving ' + this.name + 
-            ' from ' + thisRoom.name +
-            ' to ' + newRoom.name);
-    console.log('=========================== start of move drop/take ====');
-    thisRoom.printInventory('thisRoom before drop/take');
-    newRoom.printInventory('newRoom before drop/take');
-    ***/
     
     // OK to move the player
     thisRoom.drop(this);
 
-    //thisRoom.printInventory('after dropping player from ' + thisRoom.name);
-
     newRoom.take(this);
 
-    /***
-    newRoom.printInventory('newRoom after a take player from ' + newRoom.name);
-    thisRoom.printInventory('thisRoom after a take  player from ' + thisRoom.name);
-
-    thisRoom.printInventory(thisRoom.name + ' after drop/take');
-    newRoom.printInventory(newRoom.name + ' after drop/take');
-
-    console.log('=========================== end of move drop/take ====');
-    ***/
     
-    //// BUG
+    //// BUG???
     assert(thisRoom.isCarrying(this.name) === false);
     assert(newRoom.isCarrying(this.name) === true);
 };
@@ -668,7 +653,7 @@ Room.getAllExits = function getAllExits() {
 
 Room.printAllExits = function printAllExits(title) {
     var allExits = this.getAllExits();
-    console.log(title + ' for room ' + this.name + ':');
+    console.log(title + ' for ' + this.name + ':');
     //ro.reportObject(allExits, '', 2, 5);
     for(var dir in allExits) {
         var exitDir = allExits[dir];

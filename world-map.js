@@ -10,6 +10,18 @@ console.log('player:' + inspect(player));
 player.race = 'hobbit';
 player.canCarry = true;
 
+var ax = Object.create(nw.Item);
+ax.init('ax', 'A fearsome rusty ax');
+player.take(ax);
+
+var watch = Object.create(nw.Item);
+watch.init('watch', 'An old rusty but reliable watch');
+player.take(watch);
+
+var scarf = Object.create(nw.Item);
+scarf.init('scarf', 'A red bandana-like scarf.');
+player.take(scarf);
+
 var bedroom = Object.create(nw.Room);
 bedroom.init('bedroom');
 bedroom.description = 'A dull bedroom with little chance for nookie';
@@ -47,7 +59,7 @@ whiskey.init('whiskey', 'Cheap looking bottle of booze');
 kitchen.take(whiskey);
 
 // Put the player into the bedroom
-var ret = bedroom.take(player);
+bedroom.take(player);
 player.location = bedroom;
 bedroom.take(bed);
 bedroom.take(lamp);
