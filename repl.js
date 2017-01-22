@@ -11,7 +11,8 @@
 var readline = require('readline');
 
 var inspect = require('util').inspect;
-
+var fs = inspect('fs');
+var CircularJSON = require('circular-json');
 var inspect = require('util').inspect;
 var world = require('./new-world');
 var lcl_utils = require('./lib/lcl_utils');
@@ -41,7 +42,7 @@ var commands = {
         console.log('help: ...');
     },
     go: function go (args) {
-        console.log('current location:' + currentLocation.name);
+        //console.log('current location:' + currentLocation.name);
 
         if(args.length < 2) {
             console.log('"go" command requires a direction: n,e,s,w');
@@ -53,33 +54,90 @@ var commands = {
             return;
         }
 
-        console.log('Current location: ' + currentLocation.name);
         var ret = wm.player.movePlayer(currentLocation, dir);
         if(!ret) {
-            return;  // error msg already issued.
+            throw 'ERROR: Cannot move player, but exit exists';
         }
 
         currentLocation = currentLocation.exits[dir];
-        console.log('updated location:' + currentLocation.name);
+        console.log('At location:' + currentLocation.name);
+        this.look();
     },
     look: function look(args) {
         console.log(currentLocation.description)
         currentLocation.printAllExits(
-                currentLocation.name + ' Room Exits');
+                currentLocation.name + ' Exits');
         currentLocation.printInventory('Room inventory');
     },
     examine: function examine(args) {
-        console.log('examine' + args);
+        console.log('examine:' + args);
     },
     take: function take(args) {
-        console.log('take' + args);
+        //console.log('take args:' + inspect(args));
+        //console.log('take:' + args);
+        // Insist that the named item be in the inventory
+        // of this room.
+        var invList = currentLocation.inventoryList();
+        //console.log('room inventory:' + inspect(invList));
+        var invArray = invList.filter(function(item) {
+            return item.name === args[1];
+        });
+        if(invArray.length === 0) {
+            console.log(args[1] + ' not present!');
+            return false;
+        }
+
+        var player = wm.player;
+        player.take(invArray[0]);   // player takes item
+        currentLocation.drop(invArray[0]);     // room drop item
+        return true;
     },
     drop: function drop(args) {
-        console.log('drop' + args);
+        // player drop item, room takes it.
+        //console.log('drop:' + args);
+        var player = wm.player;
+
+        var invList = player.inventoryList();
+        //console.log('room inventory:' + inspect(invList));
+        var invArray = invList.filter(function(item) {
+            return item.name === args[1];
+        });
+        if(invArray.length === 0) {
+            console.log(args[1] + ' not present!');
+            return false;
+        }
+        player.drop(args[1]);
+        currentLocation.take(invArray[0]);
+        return true;
     },
     inventory: function inventory(args) {
         wm.player.printInventory('room inventory');
     },
+    save: function save(args) {
+        var fs = require('fs');         // Terribly inefficient!
+        console.log('save: ' + args);
+        console.log('world.AllObjects:' + world.AllObjects);
+        fs.writeFile('all.json',               // filename
+            CircularJSON.stringify(world.AllObjects),  // data object
+            "utf8",                            // encoding
+            function (err) {                   // callback
+                if(err) {
+                    return console.log(err);
+                }
+                 console.log('Persising completed.');
+                 return true; 
+            })
+    },
+
+    load: function load(args) {
+        var fs = require('fs');         // Terribly inefficient!
+        console.log('save: ' + args);
+        console.log('world.AllObjects:' + world.AllObjects);
+        var jsonData = fs.readFile('all.json');
+        world.AllObjects = CircularJSON.parse(jsonData);
+        console.log('DONE: unserialized load')
+    },
+
     verbs: function verbs(args) {
         console.log(' in verbs: ' + inspect(cmdList(commands)));
         cmdList(commands);
@@ -159,6 +217,8 @@ function singleCmd(cmds) {
     }
 }
 
-singleCmd('inventory');
+//singleCmd('inventory');
+singleCmd('go north');
+singleCmd('take beer');
 
 

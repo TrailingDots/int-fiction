@@ -33,6 +33,7 @@ bed.description = 'Miserable looking dirty bed.';
 var lamp = Object.create(nw.Item);
 lamp.init('lamp');
 lamp.description= 'Weird hippie lamp';
+lamp.canCarry = true;
 
 var kitchen = Object.create(nw.Room);
 kitchen.init('kitchen', 'A messy kitch with dirty dishes everywhere');

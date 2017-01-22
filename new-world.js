@@ -46,6 +46,9 @@ Dict.get = function get(key, defaultValue) {
 // Set a key in Dic to val.
 // Always answers val.
 Dict.set = function set(key, val) {
+    if(key === undefined) {
+        throw 'Attempting to set() with key === undefined';
+    }
     // val get returned.
     return this.elements[key] = val;
 };
@@ -90,7 +93,7 @@ Dict.selfTest = function () {
 
     itc.zeroCounts();
     var adict = Object.create(Dict);
-    adict.init();
+    adict.init('adict');
     console.log('\n------------------------------');
     console.log('    Testing the Dict object');
     console.log('------------------------------\n');
@@ -156,6 +159,10 @@ Dict.selfTest = function () {
     console.log('------------------------------------\n');
 };
 
+// A dictionary of all objects
+var AllObjects = Object.create(Dict);
+AllObjects.init('AllObjects');
+
 
 // Answers with a new instance of Container.
 // Most parts of the game have a Container of some sort.
@@ -167,6 +174,7 @@ Container.init = function (name) {
     this.name = name || 'xyzzy';
     this.dict = Object.create(Dict);
     this.dict.init(this.name);
+    AllObjects[name + '-Container'] = this;
 };
 
 // Return a list of keys of this.dict.elements.
@@ -203,9 +211,13 @@ Container.inventoryList = function inventoryList() {
 
 Container.printInventory = function (title) {
     var keys = Object.keys(this.dict.elements);
-    var keyStr = inspect(keys);
-    process.stdout.write('    Inventory of ' + this.name + ': ' + title);
-    process.stdout.write('\t' + keyStr + '\n');
+    console.log('Inventory of ' + this.name + ': ' + title);
+    var self = this;
+    keys.forEach(function (item) {
+        var count = self.dict.elements[item].count;
+        var name = self.dict.elements[item].name;
+        console.log('\t' + count + ': ' + name);
+    });
 };
 
 /**
@@ -231,6 +243,18 @@ Container.has = function (item) {
 Container.get = function get(item) {
     var name = (typeof item === 'string') ? item : item.name;
     return this.dict.elements[name];
+};
+
+Container.set = function set(item) {
+    if(item === undefined) {
+        throw 'Cannot "set()" withundefined item';
+    }
+    if(item instanceof 'string') {
+        throw 'Cannot store item by name, must use instance';
+    }
+
+    var name = (typeof item === 'string') ? item : item.name;
+    return this.dict.elements[name] = item;
 };
 
 // Answer true if OK, false otherwise
@@ -270,7 +294,7 @@ Container.take = function take(item) {
     }
     this.dict.elements[currItem.name] = currItem;
 
-    var keys = Object.keys(this.dict.elements);
+    //var keys = Object.keys(this.dict.elements);
     //console.log('take: ' + item.name + ' thisContainer.keys:' + inspect(keys))
     return true;
 };
@@ -370,7 +394,9 @@ Item.init = function init(name, description) {
     this.count = 0;
 
     this.weight = 1;
+    AllObjects[name] = this;
 };
+
 Item.selfTest = function () {
     var inline = require('./lib/inlineTest.js');
     if(!inline.isSelfTesting('ITEM_TESTING')) {
@@ -385,13 +411,14 @@ Item.selfTest = function () {
     itc.zeroCounts();
 
     var item = Object.create(Item);
+    item.init('init');
     
     // Create some objects.
     var ax = Object.create(Item);
     ax.init('ax', 'an ordinary looking ax');
 
     var foo = Object.create(Item);
-    foo.init(); // default name
+    foo.init('foo-Default'); // default name
 
     var table = Object.create(Item);
     table.init('table');
@@ -418,7 +445,7 @@ Item.selfTest = function () {
 
     console.log(' Use a container and continue the Container selfTest.');
     var container = Object.create(Container);
-    container.init();
+    container.init('container');
 
     itc.checkEq('take gold.', true, container.take(gold));
     itc.checkEq('multiple gold OK.', true, container.take(gold));
@@ -465,22 +492,60 @@ Player.init = function (name, description) {
     this.race = 'Orc';
     this.location = ''; // In what room is this player?
     this.elements = Object.create(Container);
-    this.elements.init('Player-' + name);
+    this.elements.init(name);
     //
     // Shortened call sequences - Law of Demeter
     this.inventory = this.elements.inventory;
     this.inventoryList = this.elements.inventoryList;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
-    this.values = this.elements.values;
     this.take = this.elements.take;
     this.drop = this.elements.drop;
     this.has = this.elements.has;
     this.get = this.elements.get;
     this.set = this.elements.set;
     this.dict = this.elements.dict;
+    this.values = this.dict.values;
     this.keys = this.elements.keys;
+    AllObjects[name] = this;
 };
+
+Player.selfTest = function playerSelfTest() {
+    var inline = require('./lib/inlineTest.js');
+    if(!inline.isSelfTesting('PLAYER_TESTING')) {
+        return;
+    }
+    console.log('\n==================================');
+    console.log('     Test the Player.');
+    console.log('====================================');
+
+    var itc = inline.inTestConfig();
+    itc.isTesting = true;
+    itc.zeroCounts();
+
+    var player = Object.create(Player);
+    player.init('player', 'an unassuming guy');
+
+    var beer = Object.create(Item);
+    beer.init('beer', ' a frothy one');
+    beer.onlySingle = false;    // can take many
+
+    var ret = player.take(beer);
+    console.log('player take beer, ret:' + ret);
+    itc.checkEq('took 1 beer', 1, player.get('beer').count);
+    player.take(beer);
+    itc.checkEq('took 2 beer', 2, player.get('beer').count);
+    player.take(beer);
+    ret = player.drop('beer');
+    itc.checkEq('took 3 beer, dropped 1 => 2', 3, player.get('beer').count);
+    ret = player.drop('beer');
+    itc.checkEq('took 3 beer, dropped 2 => 1', 3, player.get('beer').count);
+    ret = player.drop('beer');
+    ret = player.isCarrying('beer');
+    itc.checkEq('took 3 beer, dropped 3 => 0', false, ret);
+};
+Player.selfTest();
+
 
 // Return a "standard" direction name.
 // A "standard" is the abbreviated from of a direction.
@@ -548,6 +613,8 @@ Player.movePlayer = function movePlayer(thisRoom, direction) {
     //// BUG???
     assert(thisRoom.isCarrying(this.name) === false);
     assert(newRoom.isCarrying(this.name) === true);
+
+    return true;
 };
 
 
@@ -557,7 +624,7 @@ Room.init = function init(name, description) {
     this.name = name || '';
     this.description = description || 'A dull room';
     this.elements = Object.create(Container);
-    this.elements.init('Room-' + name);
+    this.elements.init(name + '-room');
 
     // Map of exits. 
     // Key: the direction.
@@ -569,7 +636,6 @@ Room.init = function init(name, description) {
     this.inventoryList = this.elements.inventoryList;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
-    this.values = this.elements.values;
     this.take = this.elements.take;
     this.drop = this.elements.drop;
     this.has = this.elements.has;
@@ -577,6 +643,7 @@ Room.init = function init(name, description) {
     this.set = this.elements.set;
     this.dict = this.elements.dict;
     this.keys = this.elements.keys;
+    AllObjects[name + '-Room'] = this;
 };
 
 Room.exitStrings = function exitStrings() {
@@ -608,7 +675,7 @@ Room.addExit = function addExit(dir, room) {
     }
     /****
     // Cannot add an exit to the room itself
-    // (Might yield Escher style topology!
+    // (Might yield Escher style topology!?!?)
     // Safe to add item
     if(room.name === this.name) {
         say(room.name + ' cannot connect to itself.');
@@ -872,6 +939,9 @@ Container.selfTest();
 Item.selfTest();
 Room.selfTest();
 
+//console.log('\n==== All Objects ===');
+//console.log(inspect(AllObjects));
+
 
 module.exports.Dict = Dict;
 module.exports.Item = Item;
@@ -881,4 +951,5 @@ module.exports.Room = Room;
 module.exports.say = say;
 module.exports.blank = blank;
 module.exports.normalizeDirection = normalizeDirection;
+module.exports.AllObjects = AllObjects;
 

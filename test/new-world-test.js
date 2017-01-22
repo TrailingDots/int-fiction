@@ -128,7 +128,7 @@ describe('Testing the Player object', function () {
 
         it('should take mulitple instances only if not unique', function() {
             var player = Object.create(world.Player);
-            player.init();
+            player.init('player');
 
             var gold = Object.create(world.Item);
             gold.init('gold');
@@ -136,13 +136,13 @@ describe('Testing the Player object', function () {
 
             var ax = Object.create(world.Item);
             ax.init('ax');
-            ax.onlySingle = true;     // true is the default.
+            ax.onlySingle = true;     // only one ax per player
 
             var ret = player.take(ax);
             assert.equal(true, ret);
             // Cannot take another ax
             ret = player.take(ax);
-            assert.equal(false, ret);
+            assert.equal(false, ret); // Could not take 2 axes.
             // Verify only one ax
             assert.equal(1, player.get('ax').count);
 
@@ -150,13 +150,33 @@ describe('Testing the Player object', function () {
             beer.init('beer');
             beer.onlySingle = false; // Allow multiple beers
             assert.equal(true, player.take(beer));
-            // Can take multiple beers
+            assert.equal(1, player.get('beer').count);
+            console.log('beer count:' + player.get('beer').count);
+            //
+            // Can carry multiple beers
             assert.equal(true, player.take(beer));
+            console.log('beer count:' + player.get('beer').count);
+            //
             // Check beer count
             assert.equal(2, player.get('beer').count);
+            console.log('beer count:' + player.get('beer').count);
+            //
             // Insist that beer has count of one while
             // 2 beers in player inventory
+            console.log('local beer count:' + beer.count);
+            assert.equal(2, beer.count);
+
+
+            // Start dropping beer.
+            ret = player.drop('beer');
+            assert.equal(1, player.get('beer').count);
+            console.log('dropping beer count:' + player.get('beer').count);
+
+            // One beer left, drop it
+            ret = player.drop('beer');
             assert.equal(0, beer.count);
+            console.log('dropping beer count ret:' + beer.count);
+
         });
 
     });
