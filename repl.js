@@ -16,6 +16,8 @@ var CircularJSON = require('circular-json');
 var inspect = require('util').inspect;
 var world = require('./new-world');
 var lcl_utils = require('./lib/lcl_utils');
+var util = require('util');
+var ro = require('./lib/reportObject');
 
 // Map of the world
 var wm = require('./world-map');
@@ -28,6 +30,21 @@ var currentLocation = wm.startingRoom;
 var commands = {
     $debug: function $debug() {
         debugger; // HANGS node!!!!
+    },
+    AllObjects: function AllObjects(args) {
+        console.log('AllObjects:' + args);
+        if(args.length == 1) {
+            // Detailed list of all objects in this world.
+            console.log(inspect(world.AllObjects.elements, {showHidden: false, depth: 2}));
+        } else {
+            if(args.length == 2) {
+                var subCmd = args[1];
+                if(subCmd === 'keys') {
+                    console.log('AllObject subcommand keys:')
+                    console.log(Object.keys(world.AllObjects.elements));
+                }
+            }
+        }
     },
     exits: function exits(args) {
         console.log('exits args:' + args);
@@ -88,8 +105,8 @@ var commands = {
         }
 
         var player = wm.player;
-        player.take(invArray[0]);   // player takes item
-        currentLocation.drop(invArray[0]);     // room drop item
+        player.take(invArray[0]);              // player takes item
+        currentLocation.drop(invArray[0]);     // room drops item
         return true;
     },
     drop: function drop(args) {
@@ -124,7 +141,7 @@ var commands = {
                 if(err) {
                     return console.log(err);
                 }
-                 console.log('Persising completed.');
+                 console.log('Persisting completed.');
                  return true; 
             })
     },
@@ -166,9 +183,11 @@ var rl = readline.createInterface({
 var lineNumber = 1;
 var allCmds = cmdList(commands);
 
+/***
 console.log('allCmds: ' + inspect(allCmds));
 var ret = 'look' in allCmds;
 console.log('in allcmds:' + ret);
+***/
 
 function validCmd(cmd, allCommands) {
     var keys = Object.keys(allCommands);
@@ -180,27 +199,33 @@ function validCmd(cmd, allCommands) {
     return false;
 }
 
+var fs = require('fs');
 var recursiveAsyncReadLine = function () {
     var leader = lineNumber.toString() + '> ';
     rl.question(leader, function (answer) {
-    lineNumber += 1;
+        lineNumber += 1;
 
-    if (answer == 'quit') { //we need some base case, for recursion
-        return rl.close(); //closing RL and returning from function.
-    }
-    var cmd = parseInput(answer);
-    //console.log('split answer:' + inspect(cmd));
+        if (answer == 'quit' || answer == 'exit') {
+            return rl.close(); //closing RL and returning from function.
+        }
+        var cmd = parseInput(answer);
 
-    // Map input to command and execute it.
-    if(validCmd(cmd[0], commands)) {
-        //console.log(cmd + ' is valid. Now exec the cmd:');
-        commands[cmd[0]](cmd);
-    } else {
-        console.log(cmd[0] + ' -> an unknown command');
-    }
+        // Map input to command and execute it.
+        if(validCmd(cmd[0], commands)) {
+            // Log all valid commands. Ignore bogus commands.
+            var logStream = fs.open('repl.log', 'a', 666, function(e, id) {
+                fs.write(id, lineNumber + ': ' + cmd.join(' ') + '\n', 
+                    null, 'utf8', function() {
+                    fs.close(id, function() {});
+                })
+            });
+            commands[cmd[0]](cmd);
+        } else {
+            console.log(cmd[0] + ' => an unknown command');
+        }
 
-    //Calling this function again to ask new question
-    recursiveAsyncReadLine(); 
+        //Calling this function again to ask new question
+        recursiveAsyncReadLine(); 
     });
 };
 
@@ -218,7 +243,7 @@ function singleCmd(cmds) {
 }
 
 //singleCmd('inventory');
-singleCmd('go north');
-singleCmd('take beer');
+//singleCmd('go north');
+//singleCmd('take beer');
 
 

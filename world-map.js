@@ -6,7 +6,7 @@ var inspect = require('util').inspect;
 
 var player = Object.create(nw.Player);
 player.init('Frobitz', 'A goofy looking guy.');
-console.log('player:' + inspect(player));
+//console.log('player:' + inspect(player));
 player.race = 'hobbit';
 player.canCarry = true;
 

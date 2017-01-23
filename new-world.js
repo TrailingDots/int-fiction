@@ -27,7 +27,9 @@ var Dict = {
     init: function init(name) {
         DictInitCount += 1;
         this.name = name || 'aDict';
+        this.type = 'Dict';
         this.elements = {};
+        lcl_utils.debugLog('Init: Dict: ' + name);
     }
 };
 
@@ -49,8 +51,11 @@ Dict.set = function set(key, val) {
     if(key === undefined) {
         throw 'Attempting to set() with key === undefined';
     }
-    // val get returned.
-    return this.elements[key] = val;
+    //lcl_utils.debugLog('\nDict.set: key:' + inspect(key));
+    //lcl_utils.debugLog('Dict.set: val:' + inspect(val));
+    // val gets returned.
+    this.elements[key] = val;
+    return val;
 };
 
 // Remove the key.
@@ -174,7 +179,9 @@ Container.init = function (name) {
     this.name = name || 'xyzzy';
     this.dict = Object.create(Dict);
     this.dict.init(this.name);
-    AllObjects[name + '-Container'] = this;
+    this.type = 'Container';
+    AllObjects.elements[name + '-' + this.type] = this;
+    lcl_utils.debugLog('Init: Container: ' + name);
 };
 
 // Return a list of keys of this.dict.elements.
@@ -295,7 +302,7 @@ Container.take = function take(item) {
     this.dict.elements[currItem.name] = currItem;
 
     //var keys = Object.keys(this.dict.elements);
-    //console.log('take: ' + item.name + ' thisContainer.keys:' + inspect(keys))
+    //lcl_utils.debugLog('take: ' + item.name + ' thisContainer.keys:' + inspect(keys))
     return true;
 };
 
@@ -323,6 +330,7 @@ Container.drop = function drop(item) {
     var storedItem = this.dict.elements[name];
     if (storedItem.count > 0) {
         storedItem.count -= 1;
+        this.dict.set(name, storedItem);
     }
 
     if (storedItem.count <= 0) {
@@ -394,7 +402,11 @@ Item.init = function init(name, description) {
     this.count = 0;
 
     this.weight = 1;
-    AllObjects[name] = this;
+
+    this.type = 'Item';
+    AllObjects.elements[name + '-' + this.type] = this;
+    lcl_utils.debugLog('Init: Item: ' + name);
+
 };
 
 Item.selfTest = function () {
@@ -411,14 +423,14 @@ Item.selfTest = function () {
     itc.zeroCounts();
 
     var item = Object.create(Item);
-    item.init('init');
+    item.init('emptyItem');
     
     // Create some objects.
     var ax = Object.create(Item);
     ax.init('ax', 'an ordinary looking ax');
 
     var foo = Object.create(Item);
-    foo.init('foo-Default'); // default name
+    foo.init('fooDefault'); // default name
 
     var table = Object.create(Item);
     table.init('table');
@@ -493,6 +505,8 @@ Player.init = function (name, description) {
     this.location = ''; // In what room is this player?
     this.elements = Object.create(Container);
     this.elements.init(name);
+    this.type = 'Player';
+    AllObjects.elements[name + '-' + this.type] = this;
     //
     // Shortened call sequences - Law of Demeter
     this.inventory = this.elements.inventory;
@@ -507,7 +521,7 @@ Player.init = function (name, description) {
     this.dict = this.elements.dict;
     this.values = this.dict.values;
     this.keys = this.elements.keys;
-    AllObjects[name] = this;
+    lcl_utils.debugLog('Init: Player: ' + name);
 };
 
 Player.selfTest = function playerSelfTest() {
@@ -624,7 +638,9 @@ Room.init = function init(name, description) {
     this.name = name || '';
     this.description = description || 'A dull room';
     this.elements = Object.create(Container);
-    this.elements.init(name + '-room');
+    this.elements.init(name);
+    this.type = 'Room';
+    AllObjects.elements[name + '-' + this.type] = this;
 
     // Map of exits. 
     // Key: the direction.
@@ -643,7 +659,7 @@ Room.init = function init(name, description) {
     this.set = this.elements.set;
     this.dict = this.elements.dict;
     this.keys = this.elements.keys;
-    AllObjects[name + '-Room'] = this;
+    lcl_utils.debugLog('Init: Room ' + name);
 };
 
 Room.exitStrings = function exitStrings() {
@@ -711,7 +727,7 @@ Room.getAllExits = function getAllExits() {
     for(var ndx in dirs) {
         var dir = dirs[ndx];
         if(self.exits[dir] === undefined) {
-            ; // console.log(self.name + ' direction occupied:' + dir);
+            ; // lcl_utils.debugLog(self.name + ' direction occupied:' + dir);
         } else {
             out[dir] = self.exits[dir];
         }}
@@ -781,18 +797,18 @@ Room.selfTest = function () {
 
         // Add a few more items to the bedroom
         var beer = Object.create(Item);
-        beer.init('bedroom-beer');
+        beer.init('bedroomBeer');
         var gold = Object.create(Item);
-        gold.init('bedroom-gold');
+        gold.init('bedroomGold');
         bedroom.take(beer);
         bedroom.take(gold);
         bedroom.inventory('bedroom after taking gold and beer');
        
         // Add some items to the bath
         var vase = Object.create(Item);
-        vase.init('bath-vase');
+        vase.init('bathVase');
         var soap = Object.create(Item);
-        soap.init('bath-soap');
+        soap.init('bathSoap');
         bath.take(vase);
         bath.take(soap);
         bedroom.inventory('bath after taking vase and soap');
@@ -934,13 +950,15 @@ Room.selfTest = function () {
     console.log('------------------------------------\n');
 };
 
+/***
 Dict.selfTest();
 Container.selfTest();
 Item.selfTest();
 Room.selfTest();
+***/
 
-//console.log('\n==== All Objects ===');
-//console.log(inspect(AllObjects));
+//lcl_utils.debugLog('\n==== All Objects ===');
+//lcl_utils.debugLog(inspect(AllObjects));
 
 
 module.exports.Dict = Dict;
