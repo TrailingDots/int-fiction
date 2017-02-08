@@ -764,16 +764,63 @@ Room.printAllExits = function printAllExits(title) {
     }
 };
 
+// =======================================
+// WARNING: This does NOT work!!!!
+// =======================================
 // Return a JSON serialized stream.
 Room.serialize = function () {
     var outJSON = '{';
     outJSON += '"name": "' + this.name + '",';
     outJSON += '"description": "' + this.description + '",';
     outJSON += '"type": "Room", ';
-    outJSON += '"exits": {';
-    var exits = Object.keys(this.exits);
     var self = this;
-    var needsComma 
+
+    var elts = this.inventoryList();
+    outJSON += '"elements": [';
+    /***
+    elts.forEach(function(anElt) {
+        outJSON += '{';
+        outJSON += '"canCarry":' + anElt.canCarry + ', ';
+        outJSON += '"count":' + anElt.count + ', ';
+        outJSON += '"description": "' + anElt.description + '", ';
+        outJSON += '"name": "' + anElt.name + '", ';
+        outJSON += '"onlySingle":' + (anElt.onlySingle ? anElt.onlySingle : false) + ', ';
+        outJSON += '"type": "' + anElt.type + '", ';
+        outJSON += '"weight":' + (anElt.weight ? anElt.weight : 0);
+        outJSON += '},';
+    });
+    ***/
+    for(var ndx in elts) {
+        outJSON += '{';
+console.log(ndx);
+console.log(inspect(elts[ndx]));
+        var keys = Object.keys(elts[ndx]);
+        var objType = elts[ndx].type;
+        if(objType === undefined) {
+            throw new Error('Cannot serialize object with undefined type');
+        }
+        keys.forEach(function(aKey) {
+            if(aKey === 'inventory') {
+                continue;
+            }
+            var component = elts[ndx][aKey];
+            if(objType === 'Room' || objType === 'Player') {
+                outJSON += '"@' + component + '",';
+            } else {
+                outJSON += '"' + aKey + '":';
+                outJSON += '"' + component + '",';
+            }
+        });
+        // No trailing commas!
+        outJSON = outJSON.replace(/,$/, "");
+        outJSON += '},';
+    }
+    // No trailing commas!
+    outJSON = outJSON.replace(/,$/, "");
+    outJSON += '],';
+
+    outJSON += ' "exits": {';
+    var exits = Object.keys(this.exits);
     exits.forEach(function (exitDir) {
         var aRoom = self.exits[exitDir];
         outJSON += '"' + exitDir + '":';
@@ -995,7 +1042,7 @@ Room.selfTest = function () {
     itc.checkEq('beer count must be 2', 2, player.get('beer').count);
 
     // Now move player to a room, drop a beer
-    var room = Object.create(Room);
+    room = Object.create(Room);
     room.init('beer room');
     room.take(player);
     itc.checkEq('room has player', true, room.isCarrying('aName'));
