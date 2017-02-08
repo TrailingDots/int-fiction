@@ -195,9 +195,12 @@ Container.inventory = function inventory(roomName) {
     var name = roomName || '';
     process.stdout.write(name + ' Inventory:[');
     var self = this;
+    var cnt = 0;
     Object.keys(self.dict.elements).forEach(function(elt, key) {
         if(self.dict.elements.hasOwnProperty(elt)) {
-            process.stdout.write(', ' + elt);
+            var comma = cnt > 0 ? ', ' : '';
+            cnt += 1;
+            process.stdout.write(comma + elt);
         }
     });
     process.stdout.write(']\n');
@@ -211,6 +214,18 @@ Container.inventoryList = function inventoryList() {
     for (var name in this.dict.elements) {
         if(this.dict.elements.hasOwnProperty(name)) {
             items.push(this.dict.elements[name]);
+        }
+    }
+    return items;
+};
+
+// An inventorylist returning the name and item type.
+Container.inventoryNameType = function inventoryNameType() {
+    var items = [];
+    for (var name in this.dict.elements) {
+        if(this.dict.elements.hasOwnProperty(name)) {
+            var descStr = name + ': ' + this.dict.elements[name].type;
+            items.push(descStr);
         }
     }
     return items;
@@ -256,7 +271,7 @@ Container.set = function set(item) {
     if(item === undefined) {
         throw 'Cannot "set()" withundefined item';
     }
-    if(item instanceof 'string') {
+    if(typeof item === 'string') {
         throw 'Cannot store item by name, must use instance';
     }
 
@@ -308,12 +323,13 @@ Container.take = function take(item) {
 
 // Drop an item.
 // Return the item with decremented count if multiple instances.
-// If the item was dropped, return true.
-// If the player does not have the item, return false. 
+// If the item was dropped, return a copy of the item.
+// (Careful if the count > 0!!!)
+// If the player does not have the item, return undefined. 
 // TODO: Need a routine to drop the item if the count > 0, such as beer.
 Container.drop = function drop(item) {
     if (item === undefined) {
-        return false;
+        return undefined;
     }
     var name = (typeof item === 'string') ? item : item.name;
     var isStored = this.isCarrying(name);
@@ -323,8 +339,7 @@ Container.drop = function drop(item) {
         } else {
             say('"undefined item" is not present.');
         }
-
-        return false;
+        return undefined;
     }
 
     var storedItem = this.dict.elements[name];
@@ -338,7 +353,10 @@ Container.drop = function drop(item) {
         assert( ! this.has(storedItem.name));
     }
 
-    return true;
+    // Need to keep the internal item from changing.
+    // Callers may view and use the info, but should
+    // not modify the stored item.
+    return R.clone(storedItem);
 };
 
 // Call this ONLY for a self-test.
@@ -511,6 +529,7 @@ Player.init = function (name, description) {
     // Shortened call sequences - Law of Demeter
     this.inventory = this.elements.inventory;
     this.inventoryList = this.elements.inventoryList;
+    this.inventoryNameType = this.elements.inventoryNameType;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
     this.take = this.elements.take;
@@ -650,6 +669,7 @@ Room.init = function init(name, description) {
     // Shortened call sequences - Law of Demeter
     this.inventory = this.elements.inventory;
     this.inventoryList = this.elements.inventoryList;
+    this.inventoryNameType = this.elements.inventoryNameType;
     this.printInventory = this.elements.printInventory;
     this.isCarrying = this.elements.isCarrying;
     this.take = this.elements.take;
@@ -667,7 +687,7 @@ Room.exitStrings = function exitStrings() {
     var self = this;    // Better: See: Effective JS, p. 100.
     for(var anExit in this.exits) {
         if(this.exits.hasOwnProperty(anExit)) {
-            results.push(anExit + ': ' + self.exits[anExit]);
+            results.push(anExit + ': ' + self.exits[anExit].name);
         }
     }
     return results;
@@ -744,6 +764,33 @@ Room.printAllExits = function printAllExits(title) {
     }
 };
 
+// Return a JSON serialized stream.
+Room.serialize = function () {
+    var outJSON = '{';
+    outJSON += '"name": "' + this.name + '",';
+    outJSON += '"description": "' + this.description + '",';
+    outJSON += '"type": "Room", ';
+    outJSON += '"exits": {';
+    var exits = Object.keys(this.exits);
+    var self = this;
+    var needsComma 
+    exits.forEach(function (exitDir) {
+        var aRoom = self.exits[exitDir];
+        outJSON += '"' + exitDir + '":';
+        outJSON += '"@' + aRoom.name + '",';
+    });
+    // No trailing commas!
+    outJSON = outJSON.replace(/,$/, "");
+
+    outJSON += '}';  // term exits
+
+
+
+    outJSON += '}';
+    return outJSON;
+};
+
+
 Room.selfTest = function () {
     // Provide inline testing of code.
     var inline = require('./lib/inlineTest.js');
@@ -811,11 +858,13 @@ Room.selfTest = function () {
         soap.init('bathSoap');
         bath.take(vase);
         bath.take(soap);
-        bedroom.inventory('bath after taking vase and soap');
+        bath.inventory('bath after taking vase and soap');
 
         // move player
         // Go north to the bath
         bedroom.addExit('n', bath);
+        bath.addExit('s', bedroom);
+
         ret = bedroom.getExit('n');
         itc.checkEq('n exit for bedroom should exist', 'bath', ret.name);
         bedroom.inventory('in bedroom before movePlayer');
@@ -823,6 +872,9 @@ Room.selfTest = function () {
         player.movePlayer(bedroom, 'n'); // move player north from bedroom
         bedroom.printInventory('after movePlayer');
         bath.printInventory('after movePlayer');
+
+        var serial = bath.serialize();
+        console.log('Serialized bath:' + serial);
 
         // player not in bedroom
         ret = bedroom.isCarrying(player);
@@ -926,6 +978,7 @@ Room.selfTest = function () {
 
     var player = Object.create(Player);
     player.init('aName');
+    player.canCarry = true;
     ret = player.take(beer);
     itc.checkEq('taking beer should be ok', true, ret);
     ret = player.take(beer);
@@ -933,7 +986,6 @@ Room.selfTest = function () {
 
     itc.checkEq('byName takes gold', true, player.take(gold));
     var beerCarrier = player.isCarrying('beer');
-    console.log('beerCarrier:' + inspect(beerCarrier));
     itc.checkEq('isCarrying beer', true, player.isCarrying('beer'));
     itc.checkEq('isCarrying foobar', false, player.isCarrying('foobar'));
 
@@ -941,6 +993,20 @@ Room.selfTest = function () {
     itc.checkEq('player.isCarrying beer', true, player.isCarrying('beer'));
     ret = player.get('beer').count;
     itc.checkEq('beer count must be 2', 2, player.get('beer').count);
+
+    // Now move player to a room, drop a beer
+    var room = Object.create(Room);
+    room.init('beer room');
+    room.take(player);
+    itc.checkEq('room has player', true, room.isCarrying('aName'));
+    itc.checkEq('player has 2 beers', 2, player.get('beer').count);
+    ret = player.drop('beer');
+    itc.checkEq('player drops 1st beer', true, (ret !== undefined));
+    itc.checkEq('player has 1 beer left', 1, player.get('beer').count);
+    // Drop 2nd beer. Player now has no beer
+    ret = player.drop('beer');
+    itc.checkEq('player drops 2nd beer', true, (ret !== undefined));
+    itc.checkEq('player has 0 beers', false, player.isCarrying('beer'));
 
 
     itc.reportResults();
@@ -954,8 +1020,8 @@ Room.selfTest = function () {
 Dict.selfTest();
 Container.selfTest();
 Item.selfTest();
-Room.selfTest();
 ***/
+Room.selfTest();
 
 //lcl_utils.debugLog('\n==== All Objects ===');
 //lcl_utils.debugLog(inspect(AllObjects));

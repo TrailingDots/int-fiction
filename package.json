@@ -1,7 +1,7 @@
 {
   "name": "int_fiction",
   "version": "1.0.0",
-  "description": "Interactive fictin a la Land of Lisp",
+  "description": "Interactive fiction a la Land of Lisp",
   "main": "index.js",
   "scripts": {
     "comment": " Ref: https://www.keithcirkel.co.uk/how-to-use-npm-as-a-build-tool/;echo npm run   => list npm commands",
@@ -9,6 +9,7 @@
     "plato": "plato -r -d plato-reports -x 'node_modules|plato-reports|coverage' .; echo Plato reports at: file:///home/cecilm/play/NodeJS/int-fiction/plato-reports/index.html",
     "lint": "jshint *.js lib/*.js test/*.js; exit 0",
     "env": "env",
+    "depcheck": "depcheck; exit 0",
     "wc": "wc *.js lib/*.js test/*.js package.json README.md backup.sh",
     "coverage": "istanbul cover _mocha -- --ui bdd -R spec -t 5000 --compilers js:babel-register new-world.js repl.js lib/lcl_utils.js lib/inlineTest.js test/new-world-test.js ; echo Report at: $(pwd)/coverage/lcov-report/index.html",
     "pretest": "npm run lint"
@@ -16,35 +17,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "babel-cli": "^6.18.0",
-    "babel-polyfill": "^6.20.0",
-    "caller-id": "^0.1.0",
     "circular-json": "^0.3.1",
-    "cli": "^1.0.1",
-    "cli-input": "^0.2.0",
-    "fibers": "^1.0.15",
     "format": "^0.2.2",
-    "inquirer": "^2.0.0",
-    "magic-globals": "^0.5.1",
-    "nicl": "^0.1.2",
-    "node-persist": "^2.0.7",
-    "prompt": "^1.0.0",
-    "prompt-sync": "^4.1.4",
     "ramda": "^0.23.0",
-    "readcommand": "^0.3.0",
     "stack-trace": "0.0.9",
-    "stampit": "^3.1.1",
-    "traceback": "^0.3.1"
+    "stampit": "^3.1.1"
   },
   "devDependencies": {
-    "babel-cli": "^6.18.0",
-    "babel-polyfill": "^6.20.0",
     "babel-register": "^6.18.0",
-    "blanket": "^1.2.3",
-    "checkplato": "file:///home/cecilm/PayPal/checkplato",
     "istanbul": "^1.0.0-alpha.2",
     "mocha": "^3.2.0",
     "mocha-cli": "^1.0.1",
-    "plato": "^1.7.0"
+    "plato": "^1.7.0",
+    "tape": "^4.6.3"
   }
 }

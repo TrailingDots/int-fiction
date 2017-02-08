@@ -3,7 +3,7 @@
 // Pure console operations.
 //
 
-// Initial configuration is a JSON script loaded to create the dungion.
+// Initial configuration is a JSON script loaded to create the dungeon.
 //
 // The the console takes input from users and executes through the
 // dungeon.
@@ -29,18 +29,19 @@ var currentLocation = wm.startingRoom;
 
 var commands = {
     $debug: function $debug() {
+        // Need to break into debug mode.
         debugger; // HANGS node!!!!
     },
     AllObjects: function AllObjects(args) {
         console.log('AllObjects:' + args);
-        if(args.length == 1) {
+        if(args.length === 1) {
             // Detailed list of all objects in this world.
             console.log(inspect(world.AllObjects.elements, {showHidden: false, depth: 2}));
         } else {
-            if(args.length == 2) {
+            if(args.length === 2) {
                 var subCmd = args[1];
                 if(subCmd === 'keys') {
-                    console.log('AllObject subcommand keys:')
+                    console.log('AllObject subcommand keys:');
                     console.log(Object.keys(world.AllObjects.elements));
                 }
             }
@@ -56,7 +57,41 @@ var commands = {
         console.log('load a file:' + args);
     },
     help: function help (args) {
-        console.log('help: ...');
+        if(args[1] == undefined || args[1] === '?' || args[1] === 'help') {
+            console.log('help for:');
+            console.log('verbs  => show all verbs.');
+            console.log('help is available for:');
+            console.log('\thelp room');
+            console.log('\thelp player');
+            console.log('\thelp item');
+            console.log('\tAllObjects: JSON of everything');
+            return;
+        }
+
+        if(args.length > 1) {
+            if(args[1] === 'room') {
+                var room_keys = (Object.keys(world.AllObjects.elements));
+                room_keys.forEach(function (item) {
+                    var obj = world.AllObjects.elements[item];
+                    if(obj.type === 'Room') {
+                        var exitStrings = obj.exitStrings();
+                        console.log('\t' + item + ': ' + obj.name +
+                            ' Exits:' + exitStrings);
+                        var invList = obj.inventoryNameType();
+                        var invStr = invList.length ? invList : 'empty';
+                        console.log('\tInventory: ' + invStr);
+                        console.log('');  // an empty line.
+                    }
+                });
+                return;
+            }
+        }
+        // Generic help command
+        console.log('Unknown help command');
+        console.log('Please use modifier:');
+        console.log('\thelp ?');
+        console.log('\thelp help');
+        console.log('\thelp room   => exits and inventory of all rooms');
     },
     go: function go (args) {
         //console.log('current location:' + currentLocation.name);
@@ -81,7 +116,7 @@ var commands = {
         this.look();
     },
     look: function look(args) {
-        console.log(currentLocation.description)
+        console.log(currentLocation.description);
         currentLocation.printAllExits(
                 currentLocation.name + ' Exits');
         currentLocation.printInventory('Room inventory');
@@ -143,16 +178,19 @@ var commands = {
                 }
                  console.log('Persisting completed.');
                  return true; 
-            })
+            });
     },
 
     load: function load(args) {
         var fs = require('fs');         // Terribly inefficient!
-        console.log('save: ' + args);
-        console.log('world.AllObjects:' + world.AllObjects);
-        var jsonData = fs.readFile('all.json');
+        if(args[1] === undefined) {
+            console.log('Missing filename. Use "load <filename>"');
+        }
+        var filename = args[1];
+        console.log('loading from "' + filename + '"');
+        var jsonData = fs.readFile(filename);
         world.AllObjects = CircularJSON.parse(jsonData);
-        console.log('DONE: unserialized load')
+        console.log('DONE: unserialized load');
     },
 
     verbs: function verbs(args) {
@@ -186,7 +224,7 @@ var allCmds = cmdList(commands);
 /***
 console.log('allCmds: ' + inspect(allCmds));
 var ret = 'look' in allCmds;
-console.log('in allcmds:' + ret);
+console.log('in allCmds:' + ret);
 ***/
 
 function validCmd(cmd, allCommands) {
@@ -205,7 +243,7 @@ var recursiveAsyncReadLine = function () {
     rl.question(leader, function (answer) {
         lineNumber += 1;
 
-        if (answer == 'quit' || answer == 'exit') {
+        if (answer === 'quit' || answer === 'exit') {
             return rl.close(); //closing RL and returning from function.
         }
         var cmd = parseInput(answer);
@@ -217,7 +255,7 @@ var recursiveAsyncReadLine = function () {
                 fs.write(id, lineNumber + ': ' + cmd.join(' ') + '\n', 
                     null, 'utf8', function() {
                     fs.close(id, function() {});
-                })
+                });
             });
             commands[cmd[0]](cmd);
         } else {
@@ -229,10 +267,8 @@ var recursiveAsyncReadLine = function () {
     });
 };
 
-recursiveAsyncReadLine(); //we have to actually start our recursion somehow
-
 function singleCmd(cmds) {
-    var cmd = parseInput(cmds)
+    var cmd = parseInput(cmds);
     // Map input to command and execute it.
     if(validCmd(cmd[0], commands)) {
         //console.log(cmd + ' is valid. Now exec the cmd:');
@@ -245,5 +281,8 @@ function singleCmd(cmds) {
 //singleCmd('inventory');
 //singleCmd('go north');
 //singleCmd('take beer');
+//singleCmd('help room');
 
+console.log('Type   verbs    for a list of action items.');
+recursiveAsyncReadLine(); //we have to actually start our recursion somehow
 

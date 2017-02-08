@@ -5,6 +5,10 @@
         "name": "Kitchen",
         "type": "Room",
         "description": "A messy kitchen full of trash and dirty dishes",
+        "exits": {
+            "s": "Bath",
+            "n": "garage"
+        },
         "contents": [
           {
             "name": "kitchen table",
@@ -50,6 +54,73 @@
             "description": "A snooring wizard who smells of whiskey",
             "isMovable": false,
             "isUnique": true,
+            "count": 1,
+            "weight": 150
+          }
+        ]
+      },
+      {
+        "name": "Bath",
+        "type": "Room",
+        "description": "A filthy bathroom full of soiled towels.",
+        "exits": {
+            "s": "kitchen",
+            "w": "garage"
+        },
+        "contents": [
+          {
+            "name": "razor",
+            "type": "Item",
+            "description": "A rusty razor with bits of hair here and there",
+            "isMovable": true,
+            "isUnique": true,
+            "count": 1,
+            "weight": 1,
+            "inventory": [
+              {
+                "name": "candlle",
+                "type": "Item",
+                "description": "A burning candle",
+                "isUnique": true,
+                "isMovable": false,
+                "count": 3,
+                "weight": 1
+              },
+              {
+                "name": "soggy soap",
+                "type": "Item",
+                "description": "Soap soaked in too much water gets soggy.",
+                "isUnique": false,
+                "isMovable": true,
+                "count": 1,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "name": "Towel rack",
+            "type": "Item",
+            "description": "A towel rack stuffed with dirty towels.",
+            "isMovable": false,
+            "isUnique": true,
+            "count": 1,
+            "weight": 0
+          },
+          {
+            "name": "Whiskey bottle",
+            "type": "Item",
+            "description": "An empty whiskey bottle",
+            "isMovable": true,
+            "isUnique": false,
+            "count": 1,
+            "weight": 1
+          },
+          {
+            "name": "Wizard",
+            "type": "Player",
+            "description": "A snoring wizard lying on the floor",
+            "isMovable": true,
+            "isUnique": false,
             "count": 1,
             "weight": 150
           }
